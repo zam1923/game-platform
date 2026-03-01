@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { socket } from '../socket';
 import { useStore } from '../store';
+import { saveSession, loadSession, clearSession } from '../utils/session';
 
 const btn = (color: string): React.CSSProperties => ({
   padding: '14px 24px',
@@ -51,6 +52,17 @@ const s: Record<string, React.CSSProperties> = {
   divider: { display: 'flex', alignItems: 'center', gap: 12, color: '#444', fontSize: 13 },
   line: { flex: 1, height: 1, background: '#2a2a3a' },
   error: { color: '#f87171', fontSize: 14 },
+  rejoinBanner: {
+    background: '#1e293b',
+    border: '1px solid #334155',
+    borderRadius: 12,
+    padding: '16px 20px',
+    width: '100%',
+    maxWidth: 440,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+  },
 };
 
 export default function Lobby() {
@@ -58,7 +70,17 @@ export default function Lobby() {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [savedSession, setSavedSession] = useState<{ name: string; code: string } | null>(null);
   const { setMe, setRoom } = useStore();
+
+  useEffect(() => {
+    const session = loadSession();
+    if (session) setSavedSession(session);
+  }, []);
+
+  function goHome() {
+    useStore.getState().setNavPage('home');
+  }
 
   function connect() {
     if (!socket.connected) socket.connect();
@@ -75,34 +97,89 @@ export default function Lobby() {
     }) => {
       setLoading(false);
       if (!res.ok) return setError(res.error ?? 'エラーが発生しました');
-      // room:updatedで自動でstoreに反映されるが、meだけ先にセット
+      saveSession(name.trim(), res.code!);
       setMe({ id: socket.id!, name: name.trim(), isHost: true, joinedAt: Date.now() });
     });
   }
 
-  async function joinRoom() {
-    if (!name.trim()) return setError('名前を入力してください');
-    if (!code.trim()) return setError('ルームコードを入力してください');
+  async function joinRoom(joinName?: string, joinCode?: string) {
+    const n = (joinName ?? name).trim();
+    const c = (joinCode ?? code).trim();
+    if (!n) return setError('名前を入力してください');
+    if (!c) return setError('ルームコードを入力してください');
     setLoading(true);
     setError('');
     connect();
 
-    socket.emit('room:join', { playerName: name.trim(), code: code.trim() }, (res: {
+    socket.emit('room:join', { playerName: n, code: c }, (res: {
       ok: boolean; room?: object; apiKey?: string; error?: string;
     }) => {
       setLoading(false);
-      if (!res.ok) return setError(res.error ?? 'エラーが発生しました');
-      setMe({ id: socket.id!, name: name.trim(), isHost: false, joinedAt: Date.now() });
+      if (!res.ok) {
+        clearSession();
+        setSavedSession(null);
+        return setError(res.error ?? 'エラーが発生しました');
+      }
+      saveSession(n, c);
+      setMe({ id: socket.id!, name: n, isHost: false, joinedAt: Date.now() });
       if (res.room) setRoom(res.room as Parameters<typeof setRoom>[0]);
     });
   }
 
+  function rejoin() {
+    if (!savedSession) return;
+    joinRoom(savedSession.name, savedSession.code);
+  }
+
   return (
     <div style={s.root}>
+      {/* ホームに戻るボタン */}
+      <button
+        onClick={goHome}
+        style={{
+          position: 'fixed',
+          top: 20,
+          left: 20,
+          padding: '8px 14px',
+          borderRadius: 8,
+          border: '1px solid #2a2a3a',
+          background: 'transparent',
+          color: '#888',
+          cursor: 'pointer',
+          fontSize: 13,
+        }}
+      >
+        ← ホーム
+      </button>
+
       <div style={{ textAlign: 'center' }}>
         <div style={s.title}>🎮 Game Platform</div>
         <div style={s.sub}>AIで作ったゲームをみんなで遊ぼう</div>
       </div>
+
+      {/* 前のセッションに戻るバナー */}
+      {savedSession && (
+        <div style={s.rejoinBanner}>
+          <div style={{ fontSize: 13, color: '#94a3b8' }}>
+            前回のセッション: <strong style={{ color: '#fff' }}>{savedSession.name}</strong> / ルーム <strong style={{ color: '#6366f1' }}>{savedSession.code}</strong>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              style={{ ...btn('#6366f1'), padding: '10px 16px', fontSize: 14 }}
+              onClick={rejoin}
+              disabled={loading}
+            >
+              🔄 このルームに戻る
+            </button>
+            <button
+              style={{ ...btn('#374151'), padding: '10px 16px', fontSize: 14, width: 'auto' }}
+              onClick={() => { clearSession(); setSavedSession(null); }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       <div style={s.card}>
         <div>
@@ -139,7 +216,7 @@ export default function Lobby() {
           />
         </div>
 
-        <button style={btn('#10b981')} onClick={joinRoom} disabled={loading}>
+        <button style={btn('#10b981')} onClick={() => joinRoom()} disabled={loading}>
           {loading ? '参加中...' : '👋 ルームに参加'}
         </button>
 

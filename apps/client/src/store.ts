@@ -24,6 +24,7 @@ export interface GeneratingInfo {
 }
 
 export type CreationMode = 'solo' | 'free' | 'challenge';
+export type NavPage = 'home' | 'lobby' | 'library';
 
 export interface RoomSnapshot {
   code: string;
@@ -54,6 +55,10 @@ interface PlatformStore {
   // 生成中のゲーム情報（ルームの全員に表示）
   generatingGames: GeneratingInfo[];
 
+  // ナビゲーション（ルーム未参加時のページ）
+  navPage: NavPage;
+  setNavPage: (page: NavPage) => void;
+
   // Actions
   setMe: (player: Player) => void;
   setRoom: (room: RoomSnapshot) => void;
@@ -78,6 +83,9 @@ export const useStore = create<PlatformStore>((set) => ({
   lastEvent: null,
   pendingChallenge: null,
   generatingGames: [],
+  navPage: 'home',
+
+  setNavPage: (page) => set({ navPage: page }),
 
   setMe: (player) => set({ me: player }),
 

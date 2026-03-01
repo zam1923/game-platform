@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { socket } from '../socket';
-import { useStore, type CreationMode, type GameProvider } from '../store';
+import { useStore, type CreationMode, type GameProvider, type DeployedGameMeta } from '../store';
+import { clearSession } from '../utils/session';
+import { useAuthStore } from '../authStore';
+import { supabase, isSupabaseEnabled } from '../supabase';
 
 const SERVER = window.location.origin;
 
@@ -25,6 +28,7 @@ export default function Room() {
   const me = useStore((s) => s.me);
   const pendingChallenge = useStore((s) => s.pendingChallenge);
   const generatingGames = useStore((s) => s.generatingGames);
+  const { user } = useAuthStore();
 
   const [gameDesc, setGameDesc] = useState(pendingChallenge ?? '');
   const [selectedProvider, setSelectedProvider] = useState<Exclude<GameProvider, 'manual'>>('claude');
@@ -35,6 +39,9 @@ export default function Room() {
   const [deployMsg, setDeployMsg] = useState('');
   const [challengeInput, setChallengeInput] = useState('');
   const [copiedConnection, setCopiedConnection] = useState(false);
+  const [showLeaveMenu, setShowLeaveMenu] = useState(false);
+  const [savingGameId, setSavingGameId] = useState<string | null>(null);
+  const [saveMsg, setSaveMsg] = useState('');
 
   const isHost = me?.isHost ?? false;
 
@@ -50,16 +57,40 @@ export default function Room() {
     navigator.clipboard.writeText(room!.code);
   }
 
-  // 接続情報（ルームコード + APIキー）をまとめてコピー
+  // 接続情報（ルームコード + APIキー + URL + ゲーム説明）をまとめてコピー
   function copyConnectionInfo() {
-    const info = `ルームコード: ${room!.code}\nAPIキー: ${room!.apiKey}\nURL: ${SERVER}`;
-    navigator.clipboard.writeText(info);
+    const parts = [
+      `ルームコード: ${room!.code}`,
+      `APIキー: ${room!.apiKey}`,
+      `URL: ${SERVER}`,
+    ];
+    if (gameDesc.trim()) {
+      parts.push(`ゲーム内容: ${gameDesc.trim()}`);
+    }
+    navigator.clipboard.writeText(parts.join('\n'));
     setCopiedConnection(true);
     setTimeout(() => setCopiedConnection(false), 2000);
   }
 
   function openAiPlatform(url: string) {
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  // 一時退出（セッション保持、ロビーに戻る）
+  function tempLeave() {
+    socket.emit('room:leave');
+    useStore.getState().clearRoom();
+    useStore.getState().setNavPage('lobby');
+    setShowLeaveMenu(false);
+  }
+
+  // 退出（セッションリセット、ホームに戻る）
+  function fullLeave() {
+    socket.emit('room:leave');
+    clearSession();
+    useStore.getState().clearRoom();
+    useStore.getState().setNavPage('home');
+    setShowLeaveMenu(false);
   }
 
   // プラットフォームのAIでゲームを生成
@@ -144,6 +175,38 @@ export default function Room() {
     socket.emit('room:setMode', mode);
   }
 
+  // ゲームをライブラリに保存（Supabase）
+  async function saveToLibrary(game: DeployedGameMeta) {
+    if (!supabase || !user) return;
+    setSavingGameId(game.id);
+    setSaveMsg('');
+    try {
+      // サーバーからゲームHTMLを取得
+      const res = await fetch(`${SERVER}/game/${room!.code}/${game.id}`);
+      if (!res.ok) throw new Error('HTML取得失敗');
+      const html = await res.text();
+
+      const { error } = await supabase.from('games').insert({
+        user_id: user.id,
+        name: game.name,
+        html,
+        provider: game.provider,
+        is_favorite: false,
+      });
+
+      if (error) {
+        setSaveMsg('❌ 保存に失敗しました');
+      } else {
+        setSaveMsg(`✅ 「${game.name}」をライブラリに保存しました`);
+      }
+    } catch {
+      setSaveMsg('❌ 通信エラー');
+    } finally {
+      setSavingGameId(null);
+      setTimeout(() => setSaveMsg(''), 3000);
+    }
+  }
+
   const modeLabels: Record<CreationMode, string> = {
     solo: '1人が作る',
     free: '各自が自由に',
@@ -154,15 +217,87 @@ export default function Room() {
     <div style={{ minHeight: '100vh', padding: 24, maxWidth: 960, margin: '0 auto' }}>
       {/* ヘッダー */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-        <div>
-          <div style={{ fontSize: 13, color: '#888' }}>ルームコード</div>
+        {/* 左: ホームに戻るボタン（ドロップダウン） */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowLeaveMenu(!showLeaveMenu)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 8,
+              border: '1px solid #2a2a3a',
+              background: 'transparent',
+              color: '#888',
+              cursor: 'pointer',
+              fontSize: 14,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            ← ホーム <span style={{ fontSize: 10, opacity: 0.7 }}>▾</span>
+          </button>
+
+          {showLeaveMenu && (
+            <>
+              {/* 背景クリックで閉じる */}
+              <div
+                onClick={() => setShowLeaveMenu(false)}
+                style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+              />
+              <div style={{
+                position: 'absolute',
+                top: 'calc(100% + 6px)',
+                left: 0,
+                zIndex: 100,
+                background: '#1a1a24',
+                border: '1px solid #2a2a3a',
+                borderRadius: 12,
+                overflow: 'hidden',
+                minWidth: 230,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              }}>
+                <button
+                  onClick={tempLeave}
+                  style={{
+                    width: '100%', padding: '14px 16px', background: 'none',
+                    border: 'none', color: '#fff', cursor: 'pointer', textAlign: 'left', display: 'block',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#2a2a3a')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  <div style={{ fontWeight: 600, marginBottom: 2 }}>🔄 一時退出</div>
+                  <div style={{ fontSize: 12, color: '#888' }}>セッション保持（後でルームに戻れる）</div>
+                </button>
+                <div style={{ height: 1, background: '#2a2a3a' }} />
+                <button
+                  onClick={fullLeave}
+                  style={{
+                    width: '100%', padding: '14px 16px', background: 'none',
+                    border: 'none', color: '#f87171', cursor: 'pointer', textAlign: 'left', display: 'block',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#2a2a3a')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  <div style={{ fontWeight: 600, marginBottom: 2 }}>🚪 退出</div>
+                  <div style={{ fontSize: 12, color: '#888' }}>セッションをリセット</div>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* 中央: ルームコード */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#888' }}>ルームコード</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 40, fontWeight: 800, letterSpacing: '0.15em', color: '#6366f1' }}>
+            <span style={{ fontSize: 36, fontWeight: 800, letterSpacing: '0.15em', color: '#6366f1' }}>
               {room.code}
             </span>
             <button onClick={copyCode} style={btnStyle('#2a2a3a')}>コピー</button>
           </div>
         </div>
+
+        {/* 右: 参加者 */}
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 13, color: '#888' }}>参加者 {room.players.length}人</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: 4 }}>
@@ -179,6 +314,21 @@ export default function Room() {
           </div>
         </div>
       </div>
+
+      {/* ライブラリ保存メッセージ */}
+      {saveMsg && (
+        <div style={{
+          marginBottom: 16,
+          padding: '10px 16px',
+          background: saveMsg.startsWith('✅') ? '#052e16' : '#1a0a0a',
+          border: `1px solid ${saveMsg.startsWith('✅') ? '#166534' : '#7f1d1d'}`,
+          borderRadius: 10,
+          fontSize: 13,
+          color: saveMsg.startsWith('✅') ? '#86efac' : '#fca5a5',
+        }}>
+          {saveMsg}
+        </div>
+      )}
 
       {/* 生成中バナー */}
       {generatingGames.length > 0 && (
@@ -272,7 +422,7 @@ export default function Room() {
             {/* 接続情報をコピー */}
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6 }}>
-                ① AIに接続情報をコピーして伝える
+                ① ルームコード・APIキー・ゲーム内容をまとめてコピー
               </div>
               <button
                 onClick={copyConnectionInfo}
@@ -284,8 +434,17 @@ export default function Room() {
                   border: '1px solid #374151',
                 }}
               >
-                {copiedConnection ? '✅ コピーしました！' : `📋 ルームコード「${room.code}」と接続情報をコピー`}
+                {copiedConnection
+                  ? '✅ コピーしました！'
+                  : gameDesc.trim()
+                    ? `📋 「${gameDesc.trim()}」+ 接続情報をコピー`
+                    : `📋 ルームコード「${room.code}」と接続情報をコピー`}
               </button>
+              {!gameDesc.trim() && (
+                <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
+                  ↑ 上のテキストボックスにゲーム内容を入れるとまとめてコピーできます
+                </div>
+              )}
             </div>
 
             {/* AI選択 */}
@@ -406,6 +565,7 @@ export default function Room() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[...room.games].reverse().map(game => {
                 const providerInfo = AI_INFO[game.provider] ?? AI_INFO.manual;
+                const isSaving = savingGameId === game.id;
                 return (
                   <div key={game.id} style={{
                     padding: 14,
@@ -434,14 +594,35 @@ export default function Room() {
                     <div style={{ fontSize: 12, color: '#666' }}>
                       by {game.deployedBy} · {new Date(game.deployedAt).toLocaleTimeString('ja-JP')}
                     </div>
-                    {isHost && (
-                      <button
-                        onClick={() => selectGame(game.id)}
-                        style={{ ...btnStyle('#6366f1'), marginTop: 10, width: '100%', padding: '8px 0' }}
-                      >
-                        ▶ このゲームで遊ぶ
-                      </button>
-                    )}
+
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      {isHost && (
+                        <button
+                          onClick={() => selectGame(game.id)}
+                          style={{ ...btnStyle('#6366f1'), flex: 1, padding: '8px 0' }}
+                        >
+                          ▶ このゲームで遊ぶ
+                        </button>
+                      )}
+
+                      {/* ライブラリに保存（ログイン済み + Supabase設定済みのみ） */}
+                      {isSupabaseEnabled && user && (
+                        <button
+                          onClick={() => saveToLibrary(game)}
+                          disabled={isSaving}
+                          title="ライブラリに保存"
+                          style={{
+                            ...btnStyle(isSaving ? '#374151' : '#1e293b'),
+                            padding: '8px 12px',
+                            fontSize: 13,
+                            border: '1px solid #334155',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {isSaving ? '...' : '💾'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
