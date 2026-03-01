@@ -58,7 +58,7 @@ export default function Game() {
     sendToIframe({
       type: 'init',
       isHost,
-      me: { id: me.id, name: me.name },
+      me: { id: me!.id, name: me!.name },
       players: room!.players.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })),
     });
 

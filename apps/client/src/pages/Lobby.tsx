@@ -2,6 +2,18 @@ import { useState } from 'react';
 import { socket } from '../socket';
 import { useStore } from '../store';
 
+const btn = (color: string): React.CSSProperties => ({
+  padding: '14px 24px',
+  borderRadius: 10,
+  border: 'none',
+  background: color,
+  color: '#fff',
+  fontWeight: 700,
+  fontSize: 16,
+  cursor: 'pointer',
+  width: '100%',
+});
+
 const s: Record<string, React.CSSProperties> = {
   root: {
     minHeight: '100vh',
@@ -36,17 +48,6 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 16,
     outline: 'none',
   },
-  btn: (color: string): React.CSSProperties => ({
-    padding: '14px 24px',
-    borderRadius: 10,
-    border: 'none',
-    background: color,
-    color: '#fff',
-    fontWeight: 700,
-    fontSize: 16,
-    cursor: 'pointer',
-    width: '100%',
-  }),
   divider: { display: 'flex', alignItems: 'center', gap: 12, color: '#444', fontSize: 13 },
   line: { flex: 1, height: 1, background: '#2a2a3a' },
   error: { color: '#f87171', fontSize: 14 },
@@ -116,7 +117,7 @@ export default function Lobby() {
           />
         </div>
 
-        <button style={s.btn('#6366f1')} onClick={createRoom} disabled={loading}>
+        <button style={btn('#6366f1')} onClick={createRoom} disabled={loading}>
           {loading ? '接続中...' : '✨ ルームを作る'}
         </button>
 
@@ -138,7 +139,7 @@ export default function Lobby() {
           />
         </div>
 
-        <button style={s.btn('#10b981')} onClick={joinRoom} disabled={loading}>
+        <button style={btn('#10b981')} onClick={joinRoom} disabled={loading}>
           {loading ? '参加中...' : '👋 ルームに参加'}
         </button>
 
