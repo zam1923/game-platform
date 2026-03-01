@@ -46,6 +46,7 @@ export function registerDeployRoute(
       name: sanitizedName,
       html: code,
       deployedBy: deployedBy?.trim() || 'AI',
+      provider: 'manual',
     });
 
     // 全員にデプロイ通知
