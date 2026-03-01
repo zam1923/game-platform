@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useStore } from './store';
 import { useAuthStore } from './authStore';
 import Lobby from './pages/Lobby';
@@ -11,6 +12,18 @@ export default function App() {
   const me = useStore((s) => s.me);
   const navPage = useStore((s) => s.navPage);
   const { loading } = useAuthStore();
+
+  // 招待リンク (?room=ABCD12) の処理（初回マウント時のみ）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const roomCode = params.get('room');
+    if (roomCode) {
+      useStore.getState().setPendingRoomCode(roomCode.toUpperCase());
+      useStore.getState().setNavPage('lobby');
+      // URLをクリーン（履歴に ?room= を残さない）
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Supabase セッション読み込み中
   if (loading) {

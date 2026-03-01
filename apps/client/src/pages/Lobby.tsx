@@ -3,6 +3,11 @@ import { socket } from '../socket';
 import { useStore } from '../store';
 import { saveSession, loadSession, clearSession } from '../utils/session';
 
+const GAME_TYPE_LABELS = {
+  solo: { icon: '🎮', label: '一人でプレイ', color: '#6366f1' },
+  multi: { icon: '👥', label: 'みんなでプレイ', color: '#10b981' },
+} as const;
+
 const btn = (color: string): React.CSSProperties => ({
   padding: '14px 24px',
   borderRadius: 10,
@@ -72,11 +77,21 @@ export default function Lobby() {
   const [loading, setLoading] = useState(false);
   const [savedSession, setSavedSession] = useState<{ name: string; code: string } | null>(null);
   const { setMe, setRoom } = useStore();
+  const pendingGameType = useStore((s) => s.pendingGameType);
+  const pendingRoomCode = useStore((s) => s.pendingRoomCode);
 
   useEffect(() => {
     const session = loadSession();
     if (session) setSavedSession(session);
   }, []);
+
+  // 招待リンクから来た場合: コードを入力欄に pre-fill
+  useEffect(() => {
+    if (pendingRoomCode) {
+      setCode(pendingRoomCode);
+      useStore.getState().setPendingRoomCode(null); // 使い終わったらクリア
+    }
+  }, [pendingRoomCode]);
 
   function goHome() {
     useStore.getState().setNavPage('home');
@@ -92,7 +107,7 @@ export default function Lobby() {
     setError('');
     connect();
 
-    socket.emit('room:create', { playerName: name.trim() }, (res: {
+    socket.emit('room:create', { playerName: name.trim(), gameType: pendingGameType ?? 'multi' }, (res: {
       ok: boolean; code?: string; apiKey?: string; error?: string;
     }) => {
       setLoading(false);
@@ -154,6 +169,24 @@ export default function Lobby() {
 
       <div style={{ textAlign: 'center' }}>
         <div style={s.title}>🎮 Game Platform</div>
+        {/* 選択されたモードの表示 */}
+        {pendingGameType && (
+          <div style={{
+            marginTop: 10,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 14px',
+            borderRadius: 20,
+            background: `${GAME_TYPE_LABELS[pendingGameType].color}20`,
+            border: `1px solid ${GAME_TYPE_LABELS[pendingGameType].color}60`,
+            color: GAME_TYPE_LABELS[pendingGameType].color,
+            fontSize: 13,
+            fontWeight: 600,
+          }}>
+            {GAME_TYPE_LABELS[pendingGameType].icon} {GAME_TYPE_LABELS[pendingGameType].label}モード
+          </div>
+        )}
         <div style={s.sub}>AIで作ったゲームをみんなで遊ぼう</div>
       </div>
 

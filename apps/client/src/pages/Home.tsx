@@ -1,11 +1,13 @@
 import { useAuthStore } from '../authStore';
 import { useStore } from '../store';
+import type { GameType } from '../store';
 import { isSupabaseEnabled } from '../supabase';
 
 export default function Home() {
   const { user, signInWithGoogle, signOut, loading } = useAuthStore();
 
-  function goToLobby() {
+  function goToLobby(gameType: GameType) {
+    useStore.getState().setPendingGameType(gameType);
     useStore.getState().setNavPage('lobby');
   }
 
@@ -56,26 +58,62 @@ export default function Home() {
       </div>
 
       {/* ボタン群 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 380 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 420 }}>
 
-        {/* 遊ぶ（メインCTA） */}
-        <button
-          onClick={goToLobby}
-          style={{
-            padding: '18px 24px',
-            borderRadius: 14,
-            border: 'none',
-            background: '#6366f1',
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 18,
-            cursor: 'pointer',
-            width: '100%',
-            letterSpacing: '0.02em',
-          }}
-        >
-          🎮 遊ぶ
-        </button>
+        {/* 2モード選択 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {/* 一人でプレイ */}
+          <button
+            onClick={() => goToLobby('solo')}
+            style={{
+              padding: '20px 16px',
+              borderRadius: 14,
+              border: '2px solid #334155',
+              background: '#1e293b',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: 16,
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
+              transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = '#6366f1')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = '#334155')}
+          >
+            <span style={{ fontSize: 32 }}>🎮</span>
+            <span>一人でプレイ</span>
+            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400 }}>1人用ゲームを作って遊ぶ</span>
+          </button>
+
+          {/* みんなでプレイ */}
+          <button
+            onClick={() => goToLobby('multi')}
+            style={{
+              padding: '20px 16px',
+              borderRadius: 14,
+              border: '2px solid #334155',
+              background: '#1e293b',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: 16,
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
+              transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = '#10b981')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = '#334155')}
+          >
+            <span style={{ fontSize: 32 }}>👥</span>
+            <span>みんなでプレイ</span>
+            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400 }}>協力・対戦ゲームをみんなで</span>
+          </button>
+        </div>
 
         {/* マイライブラリ（ログイン済み + Supabase設定済み） */}
         {isSupabaseEnabled && user && (

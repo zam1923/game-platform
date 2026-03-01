@@ -40,6 +40,7 @@ export default function Room() {
   const [deployMsg, setDeployMsg] = useState('');
   const [challengeInput, setChallengeInput] = useState('');
   const [copiedConnection, setCopiedConnection] = useState(false);
+  const [copiedInvite, setCopiedInvite] = useState(false);
   const [showLeaveMenu, setShowLeaveMenu] = useState(false);
   const [savingGameId, setSavingGameId] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState('');
@@ -56,6 +57,14 @@ export default function Room() {
 
   function copyCode() {
     navigator.clipboard.writeText(room!.code);
+  }
+
+  // 招待リンクをコピー
+  function copyInviteLink() {
+    const url = `${window.location.origin}/?room=${room!.code}`;
+    navigator.clipboard.writeText(url);
+    setCopiedInvite(true);
+    setTimeout(() => setCopiedInvite(false), 2000);
   }
 
   // 接続情報（ルームコード + APIキー + URL + ゲーム説明）をまとめてコピー
@@ -312,12 +321,27 @@ export default function Room() {
 
         {/* 中央: ルームコード */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 12, color: '#888' }}>ルームコード</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
+            ルームコード
+            {room.gameType === 'solo'
+              ? ' 🎮 一人でプレイ'
+              : ' 👥 みんなでプレイ'}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 36, fontWeight: 800, letterSpacing: '0.15em', color: '#6366f1' }}>
               {room.code}
             </span>
             <button onClick={copyCode} style={btnStyle('#2a2a3a')}>コピー</button>
+            <button
+              onClick={copyInviteLink}
+              style={{
+                ...btnStyle(copiedInvite ? '#059669' : '#1e3a5f'),
+                fontSize: 13,
+                border: '1px solid #2563eb40',
+              }}
+            >
+              {copiedInvite ? '✅ コピー済み' : '🔗 招待リンク'}
+            </button>
           </div>
         </div>
 
@@ -385,7 +409,19 @@ export default function Room() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         {/* 左: ゲーム作成パネル */}
         <div style={cardStyle}>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>🎮 ゲームを作る</div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
+            {room.gameType === 'solo' ? '🎮 1人用ゲームを作る' : '🎮 みんなで遊ぶゲームを作る'}
+          </div>
+          {room.gameType === 'multi' && (
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
+              ⚠️ 協力・対戦のマルチプレイゲームのみ作成できます
+            </div>
+          )}
+          {room.gameType === 'solo' && (
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
+              1人でプレイできる普通のブラウザゲームを作成します
+            </div>
+          )}
 
           {/* モード選択（ホストのみ） */}
           {isHost && (

@@ -24,6 +24,7 @@ export interface GeneratingInfo {
 }
 
 export type CreationMode = 'solo' | 'free' | 'challenge';
+export type GameType = 'solo' | 'multi';
 export type NavPage = 'home' | 'lobby' | 'library';
 
 export interface RoomSnapshot {
@@ -35,6 +36,7 @@ export interface RoomSnapshot {
   activeGameId: string | null;
   creationMode: CreationMode;
   challengePrompt: string | null;
+  gameType: GameType;
 }
 
 interface PlatformStore {
@@ -63,6 +65,14 @@ interface PlatformStore {
   isDisconnected: boolean;
   setDisconnected: (v: boolean) => void;
 
+  // ゲームタイプ選択（Home → Lobby に引き継ぐ）
+  pendingGameType: GameType | null;
+  setPendingGameType: (t: GameType | null) => void;
+
+  // 招待リンクから来た時のルームコード（Lobby で入力欄に pre-fill する）
+  pendingRoomCode: string | null;
+  setPendingRoomCode: (code: string | null) => void;
+
   // Actions
   setMe: (player: Player) => void;
   setRoom: (room: RoomSnapshot) => void;
@@ -89,9 +99,13 @@ export const useStore = create<PlatformStore>((set) => ({
   generatingGames: [],
   navPage: 'home',
   isDisconnected: false,
+  pendingGameType: null,
+  pendingRoomCode: null,
 
   setNavPage: (page) => set({ navPage: page }),
   setDisconnected: (v) => set({ isDisconnected: v }),
+  setPendingGameType: (t) => set({ pendingGameType: t }),
+  setPendingRoomCode: (code) => set({ pendingRoomCode: code }),
 
   setMe: (player) => set({ me: player }),
 

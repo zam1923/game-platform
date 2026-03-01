@@ -1,5 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import { RoomManager, toSnapshot, type CreationMode } from './room-manager.js';
+import { RoomManager, toSnapshot, type CreationMode, type GameType } from './room-manager.js';
 
 export function registerSocketHandlers(io: Server, rooms: RoomManager): void {
   io.on('connection', (socket: Socket) => {
@@ -7,14 +7,15 @@ export function registerSocketHandlers(io: Server, rooms: RoomManager): void {
 
     // ─── ルーム作成 ───────────────────────────────
     socket.on('room:create', (
-      payload: { playerName: string },
+      payload: { playerName: string; gameType?: GameType },
       cb: (res: { ok: boolean; code?: string; apiKey?: string; error?: string }) => void,
     ) => {
       const name = payload.playerName?.trim();
       if (!name) return cb({ ok: false, error: '名前を入力してください' });
 
+      const gameType: GameType = payload.gameType === 'solo' ? 'solo' : 'multi';
       const player = { id: playerId, name, isHost: true, joinedAt: Date.now() };
-      const room = rooms.createRoom(player);
+      const room = rooms.createRoom(player, gameType);
       socket.join(room.code);
 
       cb({ ok: true, code: room.code, apiKey: room.apiKey });

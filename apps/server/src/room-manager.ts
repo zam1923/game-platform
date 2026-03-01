@@ -23,6 +23,8 @@ export interface DeployedGame {
   provider: GameProvider;
 }
 
+export type GameType = 'solo' | 'multi';
+
 export interface Room {
   code: string;
   apiKey: string;
@@ -32,6 +34,7 @@ export interface Room {
   activeGameId: string | null;
   creationMode: CreationMode;
   challengePrompt: string | null;
+  gameType: GameType;
   createdAt: number;
 }
 
@@ -44,6 +47,7 @@ export interface RoomSnapshot {
   activeGameId: string | null;
   creationMode: CreationMode;
   challengePrompt: string | null;
+  gameType: GameType;
 }
 
 // ゲーム生成中の通知用
@@ -65,6 +69,7 @@ export function toSnapshot(room: Room): RoomSnapshot {
     activeGameId: room.activeGameId,
     creationMode: room.creationMode,
     challengePrompt: room.challengePrompt,
+    gameType: room.gameType,
   };
 }
 
@@ -74,7 +79,7 @@ export class RoomManager {
   private emptyRoomTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly GRACE_MS = 60 * 60 * 1000; // 60分（ゲーム作成中の切断でも復帰できる）
 
-  createRoom(host: Player): Room {
+  createRoom(host: Player, gameType: GameType = 'multi'): Room {
     const code = this.uniqueCode();
     const apiKey = nanoid(24);
     const room: Room = {
@@ -86,6 +91,7 @@ export class RoomManager {
       activeGameId: null,
       creationMode: 'free',
       challengePrompt: null,
+      gameType,
       createdAt: Date.now(),
     };
     this.rooms.set(code, room);

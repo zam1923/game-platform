@@ -13,16 +13,40 @@ interface GenerateBody {
   playerName?: string;
   provider: GameProvider;
   mode?: 'solo' | 'free' | 'challenge';
+  gameType?: 'solo' | 'multi';
 }
 
 // ゲーム生成用プロンプト（サーバーサイドで品質管理）
-function buildGamePrompt(description: string, mode: string): string {
-  const modeNote = mode === 'solo'
-    ? `このゲームは1人のプレイヤーが作り、参加者全員でプレイします。対戦・協力どちらでも構いません。`
-    : `【重要】このゲームは参加者全員が対戦または協力してプレイするマルチプレイヤーゲームです。
-- platform.players の全員が同時に関わるゲームにしてください
-- 1人用ゲームや、順番を待つだけの受動的な体験は避けてください
-- 対戦形式（誰かが勝つ）または協力形式（全員で目標達成）のどちらかにしてください`;
+function buildGamePrompt(description: string, gameType: 'solo' | 'multi'): string {
+  if (gameType === 'solo') {
+    // ─── 一人用スタンドアロンゲーム ───────────────────────────────────────
+    return `以下の条件でブラウザゲームを作ってください。
+
+【ゲーム内容】
+${description}
+
+【ゲームの形式】
+これは1人でプレイする完全スタンドアロンゲームです。
+- platform.js は不要です（<script src="/platform.js"> は含めないでください）
+- キーボード・マウス・タップ操作に対応した1人用ゲームにしてください
+- スコア表示・クリア条件・ゲームオーバーなど、1人用として完結した設計にしてください
+- 複数プレイヤーへの言及は一切不要です
+
+【技術仕様（必ず守ること）】
+- 自己完結したHTMLファイル1つで書く（外部ライブラリ不可。CSSはstyleタグに記述）
+- JavaScriptはscriptタグにインラインで記述
+- モバイル対応のレスポンシブデザインにすること
+- CSSアニメーション、グラデーション、カラフルなデザインにすること
+
+HTMLのコードブロック（\`\`\`html....\`\`\`）で出力してください。`;
+  }
+
+  // ─── マルチプレイヤーゲーム ─────────────────────────────────────────────
+  const modeNote = `【絶対条件】このゲームは必ずマルチプレイヤーゲームにしてください。
+- 1人で完結するゲームは絶対禁止です
+- platform.players の全員が同時にプレイできるゲームにしてください
+- 対戦形式（誰かが勝つ）または協力形式（全員で目標達成）のどちらかにしてください
+- 1人が操作して他が見るだけ、という受動的な体験は避けてください`;
 
   return `以下の条件でブラウザゲームを作ってください。
 
@@ -96,11 +120,12 @@ export function registerGenerateRoute(
           playerName:  { type: 'string', maxLength: 50 },
           provider:    { type: 'string', enum: ['claude', 'openai', 'gemini'] },
           mode:        { type: 'string', enum: ['solo', 'free', 'challenge'] },
+          gameType:    { type: 'string', enum: ['solo', 'multi'] },
         },
       },
     },
   }, async (request, reply) => {
-    const { roomCode, apiKey, description, playerName = 'AI', provider, mode = 'free' } = request.body;
+    const { roomCode, apiKey, description, playerName = 'AI', provider } = request.body;
 
     // ルーム認証
     const room = rooms.getRoomByApiKey(apiKey);
@@ -129,7 +154,9 @@ export function registerGenerateRoute(
     // 全員に生成開始通知
     io.to(room.code).emit('game:generating', { playerName, description, provider });
 
-    const prompt = buildGamePrompt(description, mode);
+    // ルームの gameType を使う（リクエストの gameType より信頼できる）
+    const effectiveGameType = room.gameType ?? 'multi';
+    const prompt = buildGamePrompt(description, effectiveGameType);
     let responseText: string;
 
     try {
