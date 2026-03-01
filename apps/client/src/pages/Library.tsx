@@ -75,8 +75,6 @@ export default function Library() {
   }
 
   const displayed = filter === 'favorite' ? games.filter(g => g.is_favorite) : games;
-  const previewGame = previewId ? games.find(g => g.id === previewId) : null;
-
   return (
     <div style={{ minHeight: '100vh', background: '#0f0f18' }}>
       {/* ヘッダー */}
@@ -260,21 +258,6 @@ export default function Library() {
         )}
       </div>
 
-      {/* HTML プレビューモーダル（fullscreen） */}
-      {previewGame && false /* 将来使うかも */ && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 999, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '8px 16px', background: '#1a1a24', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#fff', fontWeight: 700 }}>{previewGame.name}</span>
-            <button onClick={() => setPreviewId(null)} style={btn('#374151', '#fff')}>✕ 閉じる</button>
-          </div>
-          <iframe
-            srcDoc={previewGame.html}
-            sandbox="allow-scripts"
-            style={{ flex: 1, border: 'none' }}
-            title={previewGame.name}
-          />
-        </div>
-      )}
     </div>
   );
 }
