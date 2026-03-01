@@ -57,15 +57,8 @@ if (!isDev) {
   const publicDir = path.join(__dirname, '../../../public');
 
   await app.register(fastifyStatic, {
-    root: publicDir,
+    root: [publicDir, clientDist],
     prefix: '/',
-    decorateReply: false,
-  });
-
-  await app.register(fastifyStatic, {
-    root: clientDist,
-    prefix: '/',
-    decorateReply: false,
   });
 
   app.setNotFoundHandler((req, reply) => {
