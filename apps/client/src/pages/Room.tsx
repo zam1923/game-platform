@@ -41,6 +41,7 @@ export default function Room() {
   const [challengeInput, setChallengeInput] = useState('');
   const [copiedConnection, setCopiedConnection] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [copiedSoloPrompt, setCopiedSoloPrompt] = useState(false);
   const [showLeaveMenu, setShowLeaveMenu] = useState(false);
   const [savingGameId, setSavingGameId] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState('');
@@ -84,6 +85,28 @@ export default function Room() {
 
   function openAiPlatform(url: string) {
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  // ソロ用: AIへの指示プロンプトをコピー
+  function copySoloPrompt() {
+    const desc = gameDesc.trim() || 'ブロック崩し';
+    const prompt = [
+      `以下の条件で1人用ブラウザゲームを作ってください。`,
+      ``,
+      `ゲーム内容: ${desc}`,
+      ``,
+      `条件:`,
+      `- 自己完結したHTMLファイル1つで書く`,
+      `- 外部ライブラリは不要（CDN使用はOK）`,
+      `- キーボード・マウス・タップ操作対応`,
+      `- スコア表示・クリア条件など1人用として完結した設計にする`,
+      `- platform.js は絶対に使わないこと`,
+      ``,
+      `完成したHTMLをそのまま出力してください。`,
+    ].join('\n');
+    navigator.clipboard.writeText(prompt);
+    setCopiedSoloPrompt(true);
+    setTimeout(() => setCopiedSoloPrompt(false), 2000);
   }
 
   // 一時退出（セッション保持、ロビーに戻る）
@@ -423,8 +446,8 @@ export default function Room() {
             </div>
           )}
 
-          {/* モード選択（ホストのみ） */}
-          {isHost && (
+          {/* モード選択（ホストのみ・マルチモードのみ） */}
+          {isHost && room.gameType === 'multi' && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>作成モード</div>
               <div style={{ display: 'flex', gap: 6 }}>
@@ -469,78 +492,124 @@ export default function Room() {
               style={inputStyle}
               value={gameDesc}
               onChange={e => setGameDesc(e.target.value)}
-              placeholder="例: 爆弾ワードゲーム、マルバツゲーム..."
+              placeholder={
+                room.gameType === 'solo'
+                  ? '例: ブロック崩し、神経衰弱、タイピングゲーム...'
+                  : '例: 爆弾ワードゲーム、マルバツゲーム...'
+              }
             />
           </div>
 
           {/* ─── 自分のAIで作る（無料） ─── */}
-          <div style={{ background: '#0d1117', border: '1px solid #1f2937', borderRadius: 10, padding: 14, marginBottom: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#9ca3af', marginBottom: 10 }}>
-              🆓 自分のAIで作る（無料）
-            </div>
-
-            {/* 接続情報をコピー */}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6 }}>
-                ① ルームコード・APIキー・ゲーム内容をまとめてコピー
+          {room.gameType === 'solo' ? (
+            /* ソロ: 好きなAIに指示をコピーして渡す */
+            <div style={{ background: '#0d1117', border: '1px solid #1f2937', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#9ca3af', marginBottom: 10 }}>
+                🆓 自分のAIで作る（無料）
               </div>
-              <button
-                onClick={copyConnectionInfo}
-                style={{
-                  ...btnStyle(copiedConnection ? '#059669' : '#1f2937'),
-                  width: '100%',
-                  fontSize: 12,
-                  padding: '8px 12px',
-                  border: '1px solid #374151',
-                }}
-              >
-                {copiedConnection
-                  ? '✅ コピーしました！'
-                  : gameDesc.trim()
-                    ? `📋 「${gameDesc.trim()}」+ 接続情報をコピー`
-                    : `📋 ルームコード「${room.code}」と接続情報をコピー`}
-              </button>
-              {!gameDesc.trim() && (
-                <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
-                  ↑ 上のテキストボックスにゲーム内容を入れるとまとめてコピーできます
-                </div>
-              )}
-            </div>
+              <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
+                ChatGPT・Claude・Gemini など好きなAIに指示を渡してください
+              </div>
 
-            {/* AI選択 */}
-            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6 }}>
-              ② どのAIを使う？（専用ゲーム作成環境が開きます）
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              {AI_PLATFORM_LINKS.map(ai => (
+              {/* ① AIへの指示をコピー */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6 }}>
+                  ① AIへの指示をコピー（ゲーム内容を入力してからコピーすると便利）
+                </div>
                 <button
-                  key={ai.key}
-                  onClick={() => openAiPlatform(ai.url)}
+                  onClick={copySoloPrompt}
                   style={{
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    border: `1px solid ${ai.color}40`,
-                    background: `${ai.color}15`,
-                    color: '#e0e0e0',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    justifyContent: 'center',
+                    ...btnStyle(copiedSoloPrompt ? '#059669' : '#1f2937'),
+                    width: '100%',
+                    fontSize: 12,
+                    padding: '8px 12px',
+                    border: '1px solid #374151',
                   }}
                 >
-                  {ai.emoji} {ai.label}
+                  {copiedSoloPrompt
+                    ? '✅ コピーしました！'
+                    : gameDesc.trim()
+                      ? `📋 「${gameDesc.trim()}」の指示をコピー`
+                      : '📋 AIへの指示をコピー'}
                 </button>
-              ))}
+              </div>
+
+              {/* ② 好きなAIに貼り付け → ③ HTMLを受け取る */}
+              <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.6 }}>
+                ② コピーした指示を好きなAIに貼り付けてゲームを生成<br />
+                ③ 生成されたHTMLを下の「デプロイ」欄に貼り付けて登録
+              </div>
             </div>
-          </div>
+          ) : (
+            /* マルチ: 専用Custom GPT環境へのリンク */
+            <div style={{ background: '#0d1117', border: '1px solid #1f2937', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#9ca3af', marginBottom: 10 }}>
+                🆓 自分のAIで作る（無料）
+              </div>
+
+              {/* 接続情報をコピー */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6 }}>
+                  ① ルームコード・APIキー・ゲーム内容をまとめてコピー
+                </div>
+                <button
+                  onClick={copyConnectionInfo}
+                  style={{
+                    ...btnStyle(copiedConnection ? '#059669' : '#1f2937'),
+                    width: '100%',
+                    fontSize: 12,
+                    padding: '8px 12px',
+                    border: '1px solid #374151',
+                  }}
+                >
+                  {copiedConnection
+                    ? '✅ コピーしました！'
+                    : gameDesc.trim()
+                      ? `📋 「${gameDesc.trim()}」+ 接続情報をコピー`
+                      : `📋 ルームコード「${room.code}」と接続情報をコピー`}
+                </button>
+                {!gameDesc.trim() && (
+                  <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
+                    ↑ 上のテキストボックスにゲーム内容を入れるとまとめてコピーできます
+                  </div>
+                )}
+              </div>
+
+              {/* AI選択 */}
+              <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6 }}>
+                ② どのAIを使う？（専用ゲーム作成環境が開きます）
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                {AI_PLATFORM_LINKS.map(ai => (
+                  <button
+                    key={ai.key}
+                    onClick={() => openAiPlatform(ai.url)}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      border: `1px solid ${ai.color}40`,
+                      background: `${ai.color}15`,
+                      color: '#e0e0e0',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {ai.emoji} {ai.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ─── プラットフォームのAIで作る（有料） ─── */}
           <div style={{ background: '#0d1117', border: '1px solid #1f2937', borderRadius: 10, padding: 14, marginBottom: 12 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#9ca3af', marginBottom: 10 }}>
-              ✨ プラットフォームのAIで作る
+              {room.gameType === 'solo' ? '✨ AIが1人用ゲームを自動生成' : '✨ プラットフォームのAIで作る'}
             </div>
 
             {/* AIセレクタ */}
@@ -586,14 +655,14 @@ export default function Room() {
             )}
           </div>
 
-          {/* HTMLを直接デプロイ（折りたたみ） */}
-          <details style={{ marginTop: 4 }}>
-            <summary style={{ fontSize: 12, color: '#555', cursor: 'pointer', padding: '4px 0' }}>
-              🔧 AIが生成したHTMLを直接貼り付けてデプロイ
-            </summary>
-            <div style={{ marginTop: 10, background: '#0d1117', border: '1px solid #1f2937', borderRadius: 10, padding: 12 }}>
+          {/* HTMLを直接デプロイ（ソロ: 常時展開 / マルチ: 折りたたみ） */}
+          {room.gameType === 'solo' ? (
+            <div style={{ marginTop: 4, background: '#0d1117', border: '1px solid #1f2937', borderRadius: 10, padding: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#9ca3af', marginBottom: 10 }}>
+                🔧 AIが生成したHTMLを貼り付けてデプロイ
+              </div>
               <textarea
-                style={{ ...inputStyle, height: 80, fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
+                style={{ ...inputStyle, height: 100, fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
                 value={htmlCode}
                 onChange={e => setHtmlCode(e.target.value)}
                 placeholder={'<!DOCTYPE html>\n<html>...\n</html>'}
@@ -601,13 +670,35 @@ export default function Room() {
               <button
                 onClick={deployHtml}
                 disabled={deploying}
-                style={{ ...btnStyle('#10b981'), width: '100%', marginTop: 8 }}
+                style={{ ...btnStyle('#10b981'), width: '100%', marginTop: 8, padding: '10px 0', fontSize: 14 }}
               >
                 {deploying ? 'デプロイ中...' : '🚀 デプロイ！'}
               </button>
               {deployMsg && <div style={{ fontSize: 13, marginTop: 8, color: deployMsg.startsWith('✅') ? '#10b981' : '#f87171' }}>{deployMsg}</div>}
             </div>
-          </details>
+          ) : (
+            <details style={{ marginTop: 4 }}>
+              <summary style={{ fontSize: 12, color: '#555', cursor: 'pointer', padding: '4px 0' }}>
+                🔧 AIが生成したHTMLを直接貼り付けてデプロイ
+              </summary>
+              <div style={{ marginTop: 10, background: '#0d1117', border: '1px solid #1f2937', borderRadius: 10, padding: 12 }}>
+                <textarea
+                  style={{ ...inputStyle, height: 80, fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
+                  value={htmlCode}
+                  onChange={e => setHtmlCode(e.target.value)}
+                  placeholder={'<!DOCTYPE html>\n<html>...\n</html>'}
+                />
+                <button
+                  onClick={deployHtml}
+                  disabled={deploying}
+                  style={{ ...btnStyle('#10b981'), width: '100%', marginTop: 8 }}
+                >
+                  {deploying ? 'デプロイ中...' : '🚀 デプロイ！'}
+                </button>
+                {deployMsg && <div style={{ fontSize: 13, marginTop: 8, color: deployMsg.startsWith('✅') ? '#10b981' : '#f87171' }}>{deployMsg}</div>}
+              </div>
+            </details>
+          )}
         </div>
 
         {/* 右: デプロイされたゲーム一覧 */}
