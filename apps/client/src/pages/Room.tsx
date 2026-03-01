@@ -14,7 +14,7 @@ const AI_INFO: Record<GameProvider, { label: string; emoji: string; color: strin
 
 // 自分のAIを使うモードのリンク（Custom GPT / Projects / Gems）
 const AI_PLATFORM_LINKS: Array<{ key: string; label: string; emoji: string; color: string; url: string }> = [
-  { key: 'chatgpt', label: 'ChatGPT',    emoji: '💬', color: '#10a37f', url: 'https://chatgpt.com/g/g-placeholder' },
+  { key: 'chatgpt', label: 'ChatGPT',    emoji: '💬', color: '#10a37f', url: 'https://chatgpt.com/g/g-69a407cbcc8c819184071fc910df88ee-game-platform-creator' },
   { key: 'claude',  label: 'Claude',     emoji: '🟣', color: '#7c3aed', url: 'https://claude.ai/project/placeholder' },
   { key: 'gemini',  label: 'Gemini',     emoji: '🔵', color: '#2563eb', url: 'https://gemini.google.com/app/placeholder' },
   { key: 'perplexity', label: 'Perplexity', emoji: '⚡', color: '#f59e0b', url: 'https://www.perplexity.ai/spaces/placeholder' },
