@@ -59,6 +59,10 @@ interface PlatformStore {
   navPage: NavPage;
   setNavPage: (page: NavPage) => void;
 
+  // 切断中フラグ（再接続中UIの表示に使う）
+  isDisconnected: boolean;
+  setDisconnected: (v: boolean) => void;
+
   // Actions
   setMe: (player: Player) => void;
   setRoom: (room: RoomSnapshot) => void;
@@ -84,8 +88,10 @@ export const useStore = create<PlatformStore>((set) => ({
   pendingChallenge: null,
   generatingGames: [],
   navPage: 'home',
+  isDisconnected: false,
 
   setNavPage: (page) => set({ navPage: page }),
+  setDisconnected: (v) => set({ isDisconnected: v }),
 
   setMe: (player) => set({ me: player }),
 

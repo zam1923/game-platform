@@ -73,6 +73,9 @@ if (!isDev) {
 // ヘルスチェック
 app.get('/health', async () => ({ status: 'ok' }));
 
+// Keep-alive ping（UptimeRobotなどから5分ごとに叩いてもらう）
+app.get('/api/ping', async () => ({ status: 'ok', timestamp: Date.now() }));
+
 // Socket.io ハンドラ
 registerSocketHandlers(io, rooms);
 

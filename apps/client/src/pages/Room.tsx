@@ -28,6 +28,7 @@ export default function Room() {
   const me = useStore((s) => s.me);
   const pendingChallenge = useStore((s) => s.pendingChallenge);
   const generatingGames = useStore((s) => s.generatingGames);
+  const isDisconnected = useStore((s) => s.isDisconnected);
   const { user } = useAuthStore();
 
   const [gameDesc, setGameDesc] = useState(pendingChallenge ?? '');
@@ -215,6 +216,29 @@ export default function Room() {
 
   return (
     <div style={{ minHeight: '100vh', padding: 24, maxWidth: 960, margin: '0 auto' }}>
+      {/* 再接続中バナー */}
+      {isDisconnected && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 200,
+          background: '#78350f',
+          borderBottom: '1px solid #92400e',
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          fontSize: 14,
+          color: '#fef3c7',
+        }}>
+          <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>🔄</span>
+          再接続中... しばらくお待ちください
+        </div>
+      )}
+
       {/* ヘッダー */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
         {/* 左: ホームに戻るボタン（ドロップダウン） */}

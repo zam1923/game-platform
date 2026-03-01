@@ -11,6 +11,7 @@ export default function Game() {
   const gameState = useStore((s) => s.gameState);
   const lastAction = useStore((s) => s.lastAction);
   const lastEvent = useStore((s) => s.lastEvent);
+  const isDisconnected = useStore((s) => s.isDisconnected);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const isHost = me?.isHost ?? false;
   const [showLeaveMenu, setShowLeaveMenu] = useState(false);
@@ -121,6 +122,25 @@ export default function Game() {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0f0f13' }}>
+      {/* 再接続中バナー */}
+      {isDisconnected && (
+        <div style={{
+          background: '#78350f',
+          borderBottom: '1px solid #92400e',
+          padding: '8px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          fontSize: 13,
+          color: '#fef3c7',
+          flexShrink: 0,
+        }}>
+          <span>🔄</span>
+          再接続中... しばらくお待ちください
+        </div>
+      )}
+
       {/* ゲームヘッダー */}
       <div style={{
         display: 'flex',

@@ -71,6 +71,8 @@ export function toSnapshot(room: Room): RoomSnapshot {
 export class RoomManager {
   private rooms = new Map<string, Room>();
   private playerToRoom = new Map<string, string>();
+  private emptyRoomTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly GRACE_MS = 60 * 60 * 1000; // 60分（ゲーム作成中の切断でも復帰できる）
 
   createRoom(host: Player): Room {
     const code = this.uniqueCode();
@@ -95,7 +97,17 @@ export class RoomManager {
     const room = this.rooms.get(code.toUpperCase());
     if (!room) return { error: 'ルームが見つかりません' };
     if (room.players.size >= 12) return { error: '満員です' };
-    room.players.set(player.id, player);
+
+    // 空ルームへの再参加 → 削除タイマーをキャンセル
+    const timer = this.emptyRoomTimers.get(code.toUpperCase());
+    if (timer) {
+      clearTimeout(timer);
+      this.emptyRoomTimers.delete(code.toUpperCase());
+    }
+
+    // 空ルームに最初に入ったプレイヤーは自動でホストに昇格
+    const willBeHost = room.players.size === 0;
+    room.players.set(player.id, { ...player, isHost: willBeHost });
     this.playerToRoom.set(player.id, code.toUpperCase());
     return room;
   }
@@ -110,7 +122,14 @@ export class RoomManager {
     this.playerToRoom.delete(playerId);
 
     if (room.players.size === 0) {
-      this.rooms.delete(code);
+      // 即削除ではなく60分後に削除（ゲーム作成中の切断でも復帰できる）
+      const timer = setTimeout(() => {
+        if ((this.rooms.get(code)?.players.size ?? 1) === 0) {
+          this.rooms.delete(code);
+        }
+        this.emptyRoomTimers.delete(code);
+      }, this.GRACE_MS);
+      this.emptyRoomTimers.set(code, timer);
       return null;
     }
 

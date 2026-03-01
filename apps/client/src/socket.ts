@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
-import { useStore, type GeneratingInfo } from './store';
+import { useStore, type GeneratingInfo, type RoomSnapshot } from './store';
+import { loadSession, clearSession } from './utils/session';
 
 // DEV時もViteプロキシ経由で接続（空文字 = 同じオリジン）
 const URL = '';
@@ -9,7 +10,46 @@ export const socket: Socket = io(URL, {
   transports: ['websocket', 'polling'],
 });
 
-// サーバーからのイベントを Zustand ストアに接続
+// ─── 接続時: セッションがあれば自動でルームに再参加 ───────────
+socket.on('connect', () => {
+  useStore.getState().setDisconnected(false);
+
+  const session = loadSession();
+  // セッションなし or すでにルームにいる → スキップ
+  if (!session || useStore.getState().room) return;
+
+  // セッションがある && ルームにいない → 自動再参加を試みる
+  socket.emit(
+    'room:join',
+    { playerName: session.name, code: session.code },
+    (res: { ok: boolean; room?: RoomSnapshot; error?: string }) => {
+      if (res.ok && res.room) {
+        // 成功: me を新しい socket.id で更新
+        const isHost = res.room.players.find(p => p.name === session.name)?.isHost ?? false;
+        useStore.getState().setMe({
+          id: socket.id!,
+          name: session.name,
+          isHost,
+          joinedAt: Date.now(),
+        });
+        useStore.getState().setRoom(res.room);
+      } else {
+        // ルームが消えていた（サーバー再起動など）→ ホームへ
+        clearSession();
+        useStore.getState().clearRoom();
+        useStore.getState().setNavPage('home');
+      }
+    },
+  );
+});
+
+// ─── 切断時: clearRoom しない（再接続で自動復帰できるかもしれない）─
+socket.on('disconnect', () => {
+  useStore.getState().setDisconnected(true);
+  // ★ clearRoom() は呼ばない ← 最大の変更点
+});
+
+// ─── サーバーからのイベントを Zustand ストアに接続 ────────────
 socket.on('room:updated', (room) => {
   useStore.getState().setRoom(room);
 });
@@ -56,7 +96,3 @@ socket.on('game:generateFailed', ({ playerName }: { playerName: string; error: s
   useStore.getState().removeGenerating(playerName);
 });
 
-socket.on('disconnect', () => {
-  // サーバーが再起動したらルーム状態をクリア
-  useStore.getState().clearRoom();
-});
