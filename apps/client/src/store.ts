@@ -23,7 +23,7 @@ export interface GeneratingInfo {
   provider: GameProvider;
 }
 
-export type CreationMode = 'solo' | 'free' | 'challenge';
+export type CreationMode = 'free' | 'challenge' | 'random';
 export type GameType = 'solo' | 'multi';
 export type NavPage = 'home' | 'lobby' | 'library';
 

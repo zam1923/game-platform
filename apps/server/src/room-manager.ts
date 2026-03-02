@@ -3,7 +3,15 @@ import { customAlphabet } from 'nanoid';
 
 const generateCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6);
 
-export type CreationMode = 'solo' | 'free' | 'challenge';
+export type CreationMode = 'free' | 'challenge' | 'random';
+
+// Wikipedia API失敗時のフォールバック用抽象テーマリスト
+export const RANDOM_TOPICS_FALLBACK = [
+  '重力', '記憶', '裏切り', '時間', '光と影', '成長', '消える', '争奪',
+  '協力', '対決', '連鎖', 'バランス', '伝達', '信頼', '変化', '循環',
+  '境界', '孤独', '共鳴', '崩壊', '再生', '逆転', '加速', '静寂',
+  '混沌', '秩序', '欲望', '選択', '偶然', '運命',
+];
 
 export interface Player {
   id: string;

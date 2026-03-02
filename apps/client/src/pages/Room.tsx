@@ -243,10 +243,16 @@ export default function Room() {
   }
 
   const modeLabels: Record<CreationMode, string> = {
-    solo: '1人が作る',
-    free: '各自が自由に',
-    challenge: '全員同じ指示で',
+    free:      '各自が自由に',
+    challenge: 'ホストがお題',
+    random:    'ランダムお題',
   };
+
+  const isChallengeMode = room.creationMode === 'challenge' || room.creationMode === 'random';
+
+  function pickRandomTopic() {
+    socket.emit('room:randomChallenge');
+  }
 
   return (
     <div style={{ minHeight: '100vh', padding: 24, maxWidth: 960, margin: '0 auto' }}>
@@ -448,12 +454,12 @@ export default function Room() {
             </div>
           )}
 
-          {/* モード選択（ホストのみ・マルチモードのみ） */}
-          {isHost && room.gameType === 'multi' && (
+          {/* モード選択（ホストのみ） */}
+          {isHost && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>作成モード</div>
               <div style={{ display: 'flex', gap: 6 }}>
-                {(['solo', 'free', 'challenge'] as CreationMode[]).map(m => (
+                {((['free', ...(room.gameType === 'multi' ? ['challenge'] : []), 'random']) as CreationMode[]).map(m => (
                   <button key={m} onClick={() => setMode(m)} style={{
                     ...btnStyle(room.creationMode === m ? '#6366f1' : '#1a1a24'),
                     flex: 1, fontSize: 12, padding: '8px 4px',
@@ -482,25 +488,50 @@ export default function Room() {
             </div>
           )}
 
-          {room.creationMode === 'challenge' && room.challengePrompt && !isHost && (
-            <div style={{ marginBottom: 12, padding: 10, background: '#1a1612', borderRadius: 8, fontSize: 13, color: '#f59e0b' }}>
-              📢 お題: <strong>{room.challengePrompt}</strong>
+          {/* Random モード: ホストがランダムお題を取得 */}
+          {room.creationMode === 'random' && isHost && (
+            <div style={{ marginBottom: 16, padding: 12, background: '#12121e', borderRadius: 10 }}>
+              <div style={{ fontSize: 12, color: '#a78bfa', marginBottom: 8 }}>🎲 ランダムお題</div>
+              <button onClick={pickRandomTopic} style={{ ...btnStyle('#7c3aed'), width: '100%' }}>
+                🎲 ランダムでお題を決める
+              </button>
+              {room.challengePrompt && (
+                <div style={{ marginTop: 8, fontSize: 13, color: '#c4b5fd' }}>
+                  決定: <strong>{room.challengePrompt}</strong>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ゲームの説明入力（共通） */}
-          <div style={{ marginBottom: 12 }}>
-            <input
-              style={inputStyle}
-              value={gameDesc}
-              onChange={e => setGameDesc(e.target.value)}
-              placeholder={
-                room.gameType === 'solo'
-                  ? '例: ブロック崩し、神経衰弱、タイピングゲーム...'
-                  : '例: 爆弾ワードゲーム、マルバツゲーム...'
-              }
-            />
-          </div>
+          {/* 非ホスト向けお題表示（challenge / random 共通） */}
+          {isChallengeMode && room.challengePrompt && !isHost && (
+            <div style={{
+              marginBottom: 16, padding: 14,
+              background: '#1a1612', borderRadius: 10,
+              fontSize: 15, color: '#f59e0b', fontWeight: 600,
+            }}>
+              📢 お題: <strong>{room.challengePrompt}</strong>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 4, fontWeight: 400 }}>
+                ↑ このお題でゲームを作ってください
+              </div>
+            </div>
+          )}
+
+          {/* ゲームの説明入力（challenge/randomの非ホストは非表示） */}
+          {!(isChallengeMode && !isHost) && (
+            <div style={{ marginBottom: 12 }}>
+              <input
+                style={inputStyle}
+                value={gameDesc}
+                onChange={e => setGameDesc(e.target.value)}
+                placeholder={
+                  room.gameType === 'solo'
+                    ? '例: ブロック崩し、神経衰弱、タイピングゲーム...'
+                    : '例: 爆弾ワードゲーム、マルバツゲーム...'
+                }
+              />
+            </div>
+          )}
 
           {/* ─── 自分のAIで作る（無料） ─── */}
           <div style={{ background: '#0d1117', border: '1px solid #1f2937', borderRadius: 10, padding: 14, marginBottom: 12 }}>

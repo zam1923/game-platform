@@ -1,5 +1,23 @@
 import type { Server, Socket } from 'socket.io';
-import { RoomManager, toSnapshot, type CreationMode, type GameType } from './room-manager.js';
+import { RoomManager, toSnapshot, type CreationMode, type GameType, RANDOM_TOPICS_FALLBACK } from './room-manager.js';
+
+async function fetchWikipediaRandomTitle(): Promise<string> {
+  const res = await fetch('https://ja.wikipedia.org/api/rest_v1/page/random/summary', {
+    headers: { 'User-Agent': 'GamePlatform/1.0' },
+  });
+  if (!res.ok) throw new Error('Wikipedia API error');
+  const data = await res.json() as { title: string };
+  return data.title;
+}
+
+async function getRandomTopic(): Promise<string> {
+  try {
+    return await fetchWikipediaRandomTitle();
+  } catch {
+    const fallback = RANDOM_TOPICS_FALLBACK;
+    return fallback[Math.floor(Math.random() * fallback.length)];
+  }
+}
 
 export function registerSocketHandlers(io: Server, rooms: RoomManager): void {
   io.on('connection', (socket: Socket) => {
@@ -123,6 +141,19 @@ export function registerSocketHandlers(io: Server, rooms: RoomManager): void {
       if (!player?.isHost) return;
       rooms.setChallenge(room, prompt);
       io.to(room.code).emit('room:challenge', prompt);
+      io.to(room.code).emit('room:updated', toSnapshot(room));
+    });
+
+    // ─── ランダムお題（ホストのみ）────────────────────
+    socket.on('room:randomChallenge', async () => {
+      const room = rooms.getRoomByPlayer(playerId);
+      if (!room) return;
+      const player = room.players.get(playerId);
+      if (!player?.isHost) return;
+
+      const topic = await getRandomTopic();
+      rooms.setChallenge(room, topic);
+      io.to(room.code).emit('room:challenge', topic);
       io.to(room.code).emit('room:updated', toSnapshot(room));
     });
 
