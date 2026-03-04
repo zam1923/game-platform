@@ -39,6 +39,8 @@ export default function Room() {
   const [showLeaveMenu, setShowLeaveMenu] = useState(false);
   const [savingGameId, setSavingGameId] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState('');
+  const [ratingMap, setRatingMap] = useState<Record<string, number>>({});
+  const [ratingLoading, setRatingLoading] = useState<string | null>(null);
 
   const isHost = me?.isHost ?? false;
 
@@ -151,6 +153,17 @@ export default function Room() {
       const data = await res.json();
       if (data.ok) {
         setGenerateMsg('');
+        // ログイン済みならSupabaseに記録
+        if (supabase && user && data.gameId) {
+          supabase.from('deployed_games').insert({
+            id: data.gameId,
+            creator_id: user.id,
+            name: gameDesc.trim() || '無名のゲーム',
+            provider: selectedProvider,
+            game_type: room!.gameType,
+          });
+          supabase.rpc('increment_games_created', { uid: user.id });
+        }
         setGameDesc('');
       } else {
         setGenerateMsg('❌ ' + data.error);
@@ -185,6 +198,17 @@ export default function Room() {
       if (data.ok) {
         setDeployMsg('✅ ' + data.message);
         setHtmlCode('');
+        // ログイン済みならSupabaseに記録
+        if (supabase && user && data.gameId) {
+          supabase.from('deployed_games').insert({
+            id: data.gameId,
+            creator_id: user.id,
+            name: gameDesc.trim() || '無名のゲーム',
+            provider: 'manual',
+            game_type: room!.gameType,
+          });
+          supabase.rpc('increment_games_created', { uid: user.id });
+        }
       } else {
         setDeployMsg('❌ ' + data.error);
       }
@@ -198,6 +222,17 @@ export default function Room() {
   function selectGame(gameId: string) {
     if (!isHost) return;
     socket.emit('game:select', { gameId });
+  }
+
+  async function rateGame(gameId: string, rating: number) {
+    if (!supabase || !user) return;
+    setRatingLoading(gameId);
+    await supabase.from('game_ratings').upsert(
+      { game_id: gameId, rater_id: user.id, rating },
+      { onConflict: 'game_id,rater_id' },
+    );
+    setRatingMap(prev => ({ ...prev, [gameId]: rating }));
+    setRatingLoading(null);
   }
 
   function sendChallenge() {
@@ -766,6 +801,35 @@ export default function Room() {
                         </button>
                       )}
                     </div>
+
+                    {/* ⭐ 評価（ログイン済みのみ） */}
+                    {isSupabaseEnabled && user && (
+                      <div style={{ display: 'flex', gap: 2, alignItems: 'center', marginTop: 8 }}>
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <button
+                            key={star}
+                            onClick={() => rateGame(game.id, star)}
+                            disabled={ratingLoading === game.id}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: ratingLoading === game.id ? 'default' : 'pointer',
+                              fontSize: 18,
+                              padding: '2px 1px',
+                              opacity: ratingLoading === game.id ? 0.5 : 1,
+                              color: (ratingMap[game.id] ?? 0) >= star ? '#f59e0b' : '#374151',
+                            }}
+                          >
+                            ★
+                          </button>
+                        ))}
+                        {ratingMap[game.id] && (
+                          <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 4 }}>
+                            {ratingMap[game.id]}/5
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}

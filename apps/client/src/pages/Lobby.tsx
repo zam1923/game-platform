@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { socket } from '../socket';
 import { useStore } from '../store';
+import { useAuthStore } from '../authStore';
 import { saveSession, loadSession, clearSession } from '../utils/session';
 
 const GAME_TYPE_LABELS = {
@@ -79,11 +80,20 @@ export default function Lobby() {
   const { setMe, setRoom } = useStore();
   const pendingGameType = useStore((s) => s.pendingGameType);
   const pendingRoomCode = useStore((s) => s.pendingRoomCode);
+  const { user } = useAuthStore();
 
   useEffect(() => {
     const session = loadSession();
     if (session) setSavedSession(session);
   }, []);
+
+  // Googleログイン済みなら名前を自動入力
+  useEffect(() => {
+    if (user && !name) {
+      const googleName = user.user_metadata?.full_name || user.user_metadata?.name || '';
+      if (googleName) setName(googleName);
+    }
+  }, [user]);
 
   // 招待リンクから来た場合: コードを入力欄に pre-fill
   useEffect(() => {

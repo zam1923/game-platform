@@ -35,11 +35,17 @@ export default function Home() {
         <div style={{ position: 'absolute', top: 20, right: 20 }}>
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 13, color: '#666' }}>{user.email}</span>
-              <button
-                onClick={signOut}
-                style={btnStyle('#1a1a24', '#888')}
-              >
+              {user.user_metadata?.avatar_url && (
+                <img
+                  src={user.user_metadata.avatar_url}
+                  alt=""
+                  style={{ width: 28, height: 28, borderRadius: '50%' }}
+                />
+              )}
+              <span style={{ fontSize: 13, color: '#94a3b8' }}>
+                {user.user_metadata?.full_name || user.user_metadata?.name || user.email}
+              </span>
+              <button onClick={signOut} style={btnStyle('#1a1a24', '#888')}>
                 ログアウト
               </button>
             </div>
