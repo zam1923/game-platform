@@ -39,7 +39,13 @@ export default function Lobby() {
 
   useEffect(() => {
     const session = loadSession();
-    if (session) setSavedSession(session);
+    if (session) {
+      setSavedSession(session);
+      // 前回のgameTypeをpendingGameTypeに復元（未設定の場合のみ）
+      if (!pendingGameType && session.gameType) {
+        useStore.getState().setPendingGameType(session.gameType);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -96,7 +102,7 @@ export default function Lobby() {
       const n = displayName.trim();
       const c = res.code!;
       triggerTransition(() => {
-        saveSession(n, c);
+        saveSession(n, c, pendingGameType ?? 'multi');
         setMe({ id: socket.id!, name: n, isHost: true, joinedAt: Date.now() });
       });
     });
@@ -122,9 +128,10 @@ export default function Lobby() {
       }
       playSuccess();
       triggerTransition(() => {
-        saveSession(n, c);
+        const roomData = res.room as Parameters<typeof setRoom>[0] | undefined;
+        saveSession(n, c, roomData?.gameType ?? pendingGameType ?? 'multi');
         setMe({ id: socket.id!, name: n, isHost: false, joinedAt: Date.now() });
-        if (res.room) setRoom(res.room as Parameters<typeof setRoom>[0]);
+        if (roomData) setRoom(roomData);
       });
     });
   }
