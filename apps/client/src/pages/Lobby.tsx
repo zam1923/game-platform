@@ -3,73 +3,25 @@ import { socket } from '../socket';
 import { useStore } from '../store';
 import { useAuthStore } from '../authStore';
 import { saveSession, loadSession, clearSession } from '../utils/session';
+import { LobbyCanvas } from '../components/LobbyCanvas';
+import { BookTransition } from '../components/BookTransition';
+import { playClick, playHover, playSuccess } from '../utils/sound';
+
+const FONT = "'Press Start 2P', monospace";
 
 const GAME_TYPE_LABELS = {
-  solo: { icon: '🎮', label: '一人でプレイ', color: '#6366f1' },
-  multi: { icon: '👥', label: 'みんなでプレイ', color: '#10b981' },
+  solo:  { icon: '🎮', label: 'SOLO',  color: '#6366f1' },
+  multi: { icon: '👥', label: 'MULTI', color: '#10b981' },
 } as const;
 
-const btn = (color: string): React.CSSProperties => ({
-  padding: '14px 24px',
-  borderRadius: 10,
-  border: 'none',
-  background: color,
-  color: '#fff',
-  fontWeight: 700,
-  fontSize: 16,
-  cursor: 'pointer',
-  width: '100%',
-});
-
-const s: Record<string, React.CSSProperties> = {
-  root: {
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 32,
-    padding: 24,
-  },
-  title: { fontSize: 48, fontWeight: 800, letterSpacing: '-0.03em', color: '#fff' },
-  sub: { fontSize: 16, color: '#888', marginTop: 4 },
-  card: {
-    background: '#1a1a24',
-    border: '1px solid #2a2a3a',
-    borderRadius: 16,
-    padding: 32,
-    width: '100%',
-    maxWidth: 440,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 16,
-  },
-  label: { fontSize: 13, color: '#aaa', marginBottom: 4, display: 'block' },
-  input: {
-    width: '100%',
-    padding: '12px 16px',
-    borderRadius: 10,
-    border: '1px solid #333',
-    background: '#0f0f18',
-    color: '#fff',
-    fontSize: 16,
-    outline: 'none',
-  },
-  divider: { display: 'flex', alignItems: 'center', gap: 12, color: '#444', fontSize: 13 },
-  line: { flex: 1, height: 1, background: '#2a2a3a' },
-  error: { color: '#f87171', fontSize: 14 },
-  rejoinBanner: {
-    background: '#1e293b',
-    border: '1px solid #334155',
-    borderRadius: 12,
-    padding: '16px 20px',
-    width: '100%',
-    maxWidth: 440,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
-  },
-};
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  @keyframes lobbyFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes lobbySpin { to { transform: rotate(360deg); } }
+`;
 
 export default function Lobby() {
   const [name, setName] = useState('');
@@ -77,6 +29,9 @@ export default function Lobby() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [savedSession, setSavedSession] = useState<{ name: string; code: string } | null>(null);
+  // BookTransitionを表示するか + 完了後に実行するコールバック
+  const [pendingComplete, setPendingComplete] = useState<(() => void) | null>(null);
+
   const { setMe, setRoom } = useStore();
   const pendingGameType = useStore((s) => s.pendingGameType);
   const pendingRoomCode = useStore((s) => s.pendingRoomCode);
@@ -87,7 +42,6 @@ export default function Lobby() {
     if (session) setSavedSession(session);
   }, []);
 
-  // Googleログイン済みなら名前を自動入力
   useEffect(() => {
     if (user && !name) {
       const googleName = user.user_metadata?.full_name || user.user_metadata?.name || '';
@@ -95,15 +49,15 @@ export default function Lobby() {
     }
   }, [user]);
 
-  // 招待リンクから来た場合: コードを入力欄に pre-fill
   useEffect(() => {
     if (pendingRoomCode) {
       setCode(pendingRoomCode);
-      useStore.getState().setPendingRoomCode(null); // 使い終わったらクリア
+      useStore.getState().setPendingRoomCode(null);
     }
   }, [pendingRoomCode]);
 
   function goHome() {
+    playClick();
     useStore.getState().setNavPage('home');
   }
 
@@ -111,24 +65,45 @@ export default function Lobby() {
     if (!socket.connected) socket.connect();
   }
 
+  const displayName = user
+    ? (user.user_metadata?.full_name || user.user_metadata?.name || 'Player')
+    : name;
+
+  // BookTransitionを表示し、完了後にfnを実行
+  function triggerTransition(fn: () => void) {
+    setPendingComplete(() => fn);
+  }
+
+  function onTransitionComplete() {
+    if (pendingComplete) {
+      pendingComplete();
+      setPendingComplete(null);
+    }
+  }
+
   async function createRoom() {
-    if (!name.trim()) return setError('名前を入力してください');
+    if (!displayName.trim()) return setError('名前を入力してください');
     setLoading(true);
     setError('');
     connect();
 
-    socket.emit('room:create', { playerName: name.trim(), gameType: pendingGameType ?? 'multi' }, (res: {
+    socket.emit('room:create', { playerName: displayName.trim(), gameType: pendingGameType ?? 'multi' }, (res: {
       ok: boolean; code?: string; apiKey?: string; error?: string;
     }) => {
       setLoading(false);
       if (!res.ok) return setError(res.error ?? 'エラーが発生しました');
-      saveSession(name.trim(), res.code!);
-      setMe({ id: socket.id!, name: name.trim(), isHost: true, joinedAt: Date.now() });
+      playSuccess();
+      const n = displayName.trim();
+      const c = res.code!;
+      triggerTransition(() => {
+        saveSession(n, c);
+        setMe({ id: socket.id!, name: n, isHost: true, joinedAt: Date.now() });
+      });
     });
   }
 
   async function joinRoom(joinName?: string, joinCode?: string) {
-    const n = (joinName ?? name).trim();
+    const n = (joinName ?? displayName).trim();
     const c = (joinCode ?? code).trim();
     if (!n) return setError('名前を入力してください');
     if (!c) return setError('ルームコードを入力してください');
@@ -145,126 +120,278 @@ export default function Lobby() {
         setSavedSession(null);
         return setError(res.error ?? 'エラーが発生しました');
       }
-      saveSession(n, c);
-      setMe({ id: socket.id!, name: n, isHost: false, joinedAt: Date.now() });
-      if (res.room) setRoom(res.room as Parameters<typeof setRoom>[0]);
+      playSuccess();
+      triggerTransition(() => {
+        saveSession(n, c);
+        setMe({ id: socket.id!, name: n, isHost: false, joinedAt: Date.now() });
+        if (res.room) setRoom(res.room as Parameters<typeof setRoom>[0]);
+      });
     });
   }
 
   function rejoin() {
     if (!savedSession) return;
-    joinRoom(savedSession.name, savedSession.code);
+    joinRoom(user ? displayName : savedSession.name, savedSession.code);
   }
 
+  const modeInfo = pendingGameType ? GAME_TYPE_LABELS[pendingGameType] : null;
+
   return (
-    <div style={s.root}>
-      {/* ホームに戻るボタン */}
-      <button
-        onClick={goHome}
-        style={{
-          position: 'fixed',
-          top: 20,
-          left: 20,
-          padding: '8px 14px',
-          borderRadius: 8,
-          border: '1px solid #2a2a3a',
-          background: 'transparent',
-          color: '#888',
-          cursor: 'pointer',
-          fontSize: 13,
-        }}
-      >
-        ← ホーム
-      </button>
+    <>
+      <style>{CSS}</style>
+      <LobbyCanvas />
 
-      <div style={{ textAlign: 'center' }}>
-        <div style={s.title}>🎮 Game Platform</div>
-        {/* 選択されたモードの表示 */}
-        {pendingGameType && (
-          <div style={{
-            marginTop: 10,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 14px',
-            borderRadius: 20,
-            background: `${GAME_TYPE_LABELS[pendingGameType].color}20`,
-            border: `1px solid ${GAME_TYPE_LABELS[pendingGameType].color}60`,
-            color: GAME_TYPE_LABELS[pendingGameType].color,
-            fontSize: 13,
-            fontWeight: 600,
-          }}>
-            {GAME_TYPE_LABELS[pendingGameType].icon} {GAME_TYPE_LABELS[pendingGameType].label}モード
-          </div>
-        )}
-        <div style={s.sub}>AIで作ったゲームをみんなで遊ぼう</div>
-      </div>
-
-      {/* 前のセッションに戻るバナー */}
-      {savedSession && (
-        <div style={s.rejoinBanner}>
-          <div style={{ fontSize: 13, color: '#94a3b8' }}>
-            前回のセッション: <strong style={{ color: '#fff' }}>{savedSession.name}</strong> / ルーム <strong style={{ color: '#6366f1' }}>{savedSession.code}</strong>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              style={{ ...btn('#6366f1'), padding: '10px 16px', fontSize: 14 }}
-              onClick={rejoin}
-              disabled={loading}
-            >
-              🔄 このルームに戻る
-            </button>
-            <button
-              style={{ ...btn('#374151'), padding: '10px 16px', fontSize: 14, width: 'auto' }}
-              onClick={() => { clearSession(); setSavedSession(null); }}
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+      {/* BookTransitionオーバーレイ */}
+      {pendingComplete && (
+        <BookTransition onComplete={onTransitionComplete} />
       )}
 
-      <div style={s.card}>
-        <div>
-          <span style={s.label}>あなたの名前</span>
-          <input
-            style={s.input}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && createRoom()}
-            placeholder="例: たろう"
-            maxLength={20}
-          />
-        </div>
-
-        <button style={btn('#6366f1')} onClick={createRoom} disabled={loading}>
-          {loading ? '接続中...' : '✨ ルームを作る'}
+      <div style={{
+        position: 'relative',
+        zIndex: 10,
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 20,
+        padding: 24,
+      }}>
+        {/* 左上: ホームに戻る */}
+        <button
+          onClick={goHome}
+          onMouseEnter={playHover}
+          style={{
+            position: 'fixed', top: 20, left: 20,
+            fontFamily: FONT, fontSize: 8,
+            padding: '10px 14px',
+            background: 'rgba(8,4,1,0.8)',
+            border: '2px solid #3d1f0a',
+            color: '#7c5a30',
+            cursor: 'pointer',
+            zIndex: 20,
+            transition: 'border-color 0.1s, color 0.1s',
+          }}
+          onMouseOver={e => { e.currentTarget.style.borderColor = '#f59e0b'; e.currentTarget.style.color = '#fcd34d'; }}
+          onMouseOut={e => { e.currentTarget.style.borderColor = '#3d1f0a'; e.currentTarget.style.color = '#7c5a30'; }}
+        >
+          ← BACK
         </button>
 
-        <div style={s.divider}>
-          <div style={s.line} />
-          <span>または</span>
-          <div style={s.line} />
+        {/* タイトル */}
+        <div style={{ textAlign: 'center', animation: 'lobbyFadeIn 0.5s ease' }}>
+          <div style={{
+            fontFamily: FONT,
+            fontSize: 'clamp(11px, 2vw, 16px)',
+            color: '#f0c060',
+            textShadow: '0 0 10px rgba(240,192,96,0.5), 2px 2px 0 #2d1208',
+            marginBottom: 8,
+          }}>
+            📖 ENTER THE BOOK
+          </div>
+          {modeInfo && (
+            <div style={{
+              fontFamily: FONT, fontSize: 8,
+              color: modeInfo.color,
+              padding: '4px 12px',
+              border: `1px solid ${modeInfo.color}60`,
+              background: `${modeInfo.color}15`,
+              display: 'inline-block',
+              marginTop: 4,
+            }}>
+              {modeInfo.icon} {modeInfo.label} MODE
+            </div>
+          )}
         </div>
 
-        <div>
-          <span style={s.label}>ルームコード（6文字）</span>
-          <input
-            style={{ ...s.input, textTransform: 'uppercase', letterSpacing: '0.2em', fontWeight: 700 }}
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            onKeyDown={(e) => e.key === 'Enter' && joinRoom()}
-            placeholder="ABC123"
-            maxLength={6}
-          />
+        {/* 前のセッションに戻るバナー */}
+        {savedSession && (
+          <div style={{
+            background: 'rgba(8,4,1,0.88)',
+            border: '2px solid #3d1f0a',
+            padding: '14px 18px',
+            width: '100%', maxWidth: 400,
+            animation: 'lobbyFadeIn 0.4s ease',
+          }}>
+            <div style={{ fontFamily: FONT, fontSize: 7, color: '#7c5a30', marginBottom: 10, lineHeight: 2 }}>
+              LAST SESSION: <span style={{ color: '#f0c060' }}>{savedSession.name}</span>
+              {' / '}<span style={{ color: '#c47a2a' }}>{savedSession.code}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <LobbyBtn onClick={rejoin} disabled={loading} variant="primary">
+                🔄 REJOIN
+              </LobbyBtn>
+              <button
+                onClick={() => { clearSession(); setSavedSession(null); }}
+                style={{
+                  background: 'transparent', border: '2px solid #3d1f0a',
+                  color: '#5a3a18', fontFamily: FONT, fontSize: 8,
+                  padding: '10px 14px', cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* メインカード */}
+        <div style={{
+          background: 'rgba(6,3,1,0.9)',
+          border: '3px solid #5a2d0a',
+          outline: '1px solid #2d1208',
+          outlineOffset: 4,
+          padding: '28px 24px',
+          width: '100%', maxWidth: 400,
+          display: 'flex', flexDirection: 'column', gap: 14,
+          animation: 'lobbyFadeIn 0.5s ease 0.1s both',
+        }}>
+
+          {/* 名前フィールド */}
+          <div>
+            <div style={{ fontFamily: FONT, fontSize: 7, color: '#5a3a18', marginBottom: 8 }}>
+              YOUR NAME
+            </div>
+            {user ? (
+              <div style={{
+                padding: '12px 14px',
+                border: '2px solid #3d1f0a',
+                background: 'rgba(20,10,2,0.6)',
+                color: '#c8a06a',
+                fontFamily: FONT, fontSize: 9,
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                {user.user_metadata?.avatar_url && (
+                  <img src={user.user_metadata.avatar_url} alt=""
+                    style={{ width: 20, height: 20, borderRadius: 2, border: '1px solid #5a2d0a' }} />
+                )}
+                {displayName}
+                <span style={{ fontSize: 6, color: '#3d1f0a', marginLeft: 4 }}>（Google）</span>
+              </div>
+            ) : (
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && createRoom()}
+                placeholder="例: たろう"
+                maxLength={20}
+                style={{
+                  width: '100%', padding: '12px 14px',
+                  border: '2px solid #3d1f0a',
+                  background: 'rgba(20,10,2,0.6)',
+                  color: '#c8a06a',
+                  fontFamily: FONT, fontSize: 10,
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+            )}
+          </div>
+
+          {/* ルームを作る */}
+          <LobbyBtn
+            onClick={() => { playClick(); createRoom(); }}
+            disabled={loading}
+            variant="primary"
+          >
+            {loading
+              ? <><span style={{ display: 'inline-block', animation: 'lobbySpin 0.8s linear infinite' }}>◌</span> LOADING...</>
+              : '✨ CREATE ROOM'}
+          </LobbyBtn>
+
+          {/* ルームコード（MULTIのみ表示） */}
+          {pendingGameType !== 'solo' && (
+            <>
+              {/* 区切り */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, height: 1, background: '#2a1208' }} />
+                <span style={{ fontFamily: FONT, fontSize: 7, color: '#3d1f0a' }}>OR</span>
+                <div style={{ flex: 1, height: 1, background: '#2a1208' }} />
+              </div>
+
+              <div>
+                <div style={{ fontFamily: FONT, fontSize: 7, color: '#5a3a18', marginBottom: 8 }}>
+                  ROOM CODE
+                </div>
+                <input
+                  value={code}
+                  onChange={e => setCode(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === 'Enter' && joinRoom()}
+                  placeholder="ABC123"
+                  maxLength={6}
+                  style={{
+                    width: '100%', padding: '12px 14px',
+                    border: '2px solid #3d1f0a',
+                    background: 'rgba(20,10,2,0.6)',
+                    color: '#f0c060',
+                    fontFamily: FONT, fontSize: 14,
+                    outline: 'none', boxSizing: 'border-box',
+                    textTransform: 'uppercase', letterSpacing: '0.25em',
+                    textAlign: 'center',
+                  }}
+                />
+              </div>
+
+              <LobbyBtn
+                onClick={() => { playClick(); joinRoom(); }}
+                disabled={loading}
+                variant="ghost"
+              >
+                👋 JOIN ROOM
+              </LobbyBtn>
+            </>
+          )}
+
+          {error && (
+            <div style={{ fontFamily: FONT, fontSize: 7, color: '#c0392b', lineHeight: 2 }}>
+              ⚠ {error}
+            </div>
+          )}
         </div>
-
-        <button style={btn('#10b981')} onClick={() => joinRoom()} disabled={loading}>
-          {loading ? '参加中...' : '👋 ルームに参加'}
-        </button>
-
-        {error && <div style={s.error}>⚠ {error}</div>}
       </div>
-    </div>
+    </>
+  );
+}
+
+// ===== ボタンコンポーネント =====
+type LobbyBtnProps = {
+  onClick: () => void;
+  children: React.ReactNode;
+  disabled?: boolean;
+  variant?: 'primary' | 'ghost';
+};
+
+function LobbyBtn({ onClick, children, disabled, variant = 'ghost' }: LobbyBtnProps) {
+  const isPrimary = variant === 'primary';
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={playHover}
+      onMouseOver={e => {
+        if (!disabled) {
+          e.currentTarget.style.borderColor = '#f59e0b';
+          e.currentTarget.style.color = '#fcd34d';
+          e.currentTarget.style.boxShadow = '0 0 16px rgba(245,158,11,0.45)';
+        }
+      }}
+      onMouseOut={e => {
+        e.currentTarget.style.borderColor = isPrimary ? '#c47a2a' : '#3d1f0a';
+        e.currentTarget.style.color = isPrimary ? '#fcd34d' : '#7c5a30';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
+      style={{
+        fontFamily: FONT, fontSize: 9,
+        width: '100%', padding: '14px 18px',
+        background: isPrimary ? 'rgba(18,9,2,0.9)' : 'transparent',
+        border: `2px solid ${isPrimary ? '#c47a2a' : '#3d1f0a'}`,
+        color: isPrimary ? '#fcd34d' : '#7c5a30',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        letterSpacing: '0.05em', lineHeight: 1.8,
+        transition: 'border-color 0.1s, color 0.1s, box-shadow 0.1s',
+      }}
+    >
+      {children}
+    </button>
   );
 }

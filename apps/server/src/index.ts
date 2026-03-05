@@ -28,10 +28,14 @@ const io = new SocketServer(httpServer, {
 });
 
 // 3. Fastify は serverFactory でHTTPサーバーを共有
+// Socket.io のリクエスト（/socket.io/）はFastifyに渡さない（二重応答クラッシュ防止）
 const app = Fastify({
   logger: false,
   serverFactory: (handler) => {
-    httpServer.on('request', handler);
+    httpServer.on('request', (req, res) => {
+      if (req.url?.startsWith('/socket.io')) return;
+      handler(req, res);
+    });
     return httpServer;
   },
 });

@@ -6,6 +6,7 @@ import Room from './pages/Room';
 import Game from './pages/Game';
 import Home from './pages/Home';
 import Library from './pages/Library';
+import { SoundSettings } from './components/SoundSettings';
 
 export default function App() {
   const room = useStore((s) => s.room);
@@ -33,23 +34,24 @@ export default function App() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0f0f18',
-        color: '#555',
-        fontSize: 15,
+        background: '#0d0703',
+        color: '#5a3a18',
+        fontSize: 13,
+        fontFamily: "'Press Start 2P', monospace",
       }}>
-        読み込み中...
+        LOADING...
       </div>
     );
   }
 
   // ゲームプレイ中
-  if (room && me && room.phase === 'playing' && room.activeGameId) return <Game />;
+  if (room && me && room.phase === 'playing' && room.activeGameId) return <><Game /><SoundSettings /></>;
   // ルーム参加中
-  if (room && me) return <Room />;
+  if (room && me) return <><Room /><SoundSettings /></>;
   // ロビー（ルーム作成・参加）
-  if (navPage === 'lobby') return <Lobby />;
+  if (navPage === 'lobby') return <><Lobby /><SoundSettings /></>;
   // ゲームライブラリ
-  if (navPage === 'library') return <Library />;
+  if (navPage === 'library') return <><Library /><SoundSettings /></>;
   // ホーム（デフォルト）
-  return <Home />;
+  return <><Home /><SoundSettings /></>;
 }
