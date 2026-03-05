@@ -68,6 +68,51 @@ const CSS = `
     border-color: #c47a2a;
     box-shadow: 0 0 12px rgba(196,122,42,0.2);
   }
+  .room-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(196,122,42,0.2);
+  }
+  .room-header-center {
+    text-align: center;
+  }
+  .room-header-right {
+    text-align: right;
+  }
+  .play-btn {
+    min-height: 44px;
+    padding: 10px 0;
+    font-size: 14px;
+  }
+  @media (max-width: 640px) {
+    .room-grid {
+      grid-template-columns: 1fr;
+    }
+    .room-header {
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .room-header-center {
+      order: -1;
+      width: 100%;
+      text-align: center;
+    }
+    .room-header-right {
+      text-align: left;
+    }
+    .play-btn {
+      min-height: 52px;
+      font-size: 16px;
+    }
+  }
 `;
 
 export default function Room() {
@@ -228,7 +273,7 @@ export default function Room() {
       <div style={{ position: 'fixed', bottom: 0, left: 0, width: 300, height: 300, background: 'radial-gradient(circle, rgba(196,100,20,0.08) 0%, transparent 70%)', zIndex: 0, pointerEvents: 'none' }} />
       <div style={{ position: 'fixed', bottom: 0, right: 0, width: 300, height: 300, background: 'radial-gradient(circle, rgba(196,100,20,0.08) 0%, transparent 70%)', zIndex: 0, pointerEvents: 'none' }} />
 
-      <div style={{ minHeight: '100vh', padding: '28px 24px', maxWidth: 1000, margin: '0 auto', position: 'relative', zIndex: 1, color: '#f0d090' }}>
+      <div style={{ minHeight: '100vh', padding: '28px 16px', maxWidth: 1000, margin: '0 auto', position: 'relative', zIndex: 1, color: '#f0d090' }}>
 
         {/* 再接続バナー */}
         {isDisconnected && (
@@ -244,11 +289,7 @@ export default function Room() {
         )}
 
         {/* ─── ヘッダー ─── */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          marginBottom: 32, paddingBottom: 20,
-          borderBottom: '1px solid rgba(196,122,42,0.2)',
-        }}>
+        <div className="room-header">
 
           {/* 左: 退出 */}
           <div style={{ position: 'relative' }}>
@@ -307,7 +348,7 @@ export default function Room() {
           </div>
 
           {/* 中央: ルームコード */}
-          <div style={{ textAlign: 'center' }}>
+          <div className="room-header-center">
             <div style={{ fontFamily: FONT, fontSize: 7, color: '#7c5a30', marginBottom: 6 }}>
               {room.gameType === 'solo' ? '🎮 SOLO ROOM' : '👥 MULTI ROOM'}
             </div>
@@ -336,7 +377,7 @@ export default function Room() {
           </div>
 
           {/* 右: 参加者 */}
-          <div style={{ textAlign: 'right' }}>
+          <div className="room-header-right">
             <div style={{ fontFamily: FONT, fontSize: 7, color: '#7c5a30', marginBottom: 8 }}>
               PLAYERS · {room.players.length}
             </div>
@@ -388,7 +429,7 @@ export default function Room() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+        <div className="room-grid">
 
           {/* ─── 左: ゲーム作成 ─── */}
           <div style={cardStyle}>
@@ -593,7 +634,7 @@ export default function Room() {
 
                       <div style={{ display: 'flex', gap: 8 }}>
                         {isHost && (
-                          <button onClick={() => selectGame(game.id)} className="room-btn-gold" style={{ flex: 1, padding: '8px 0', fontSize: 11, fontFamily: FONT }}>
+                          <button onClick={() => selectGame(game.id)} className="room-btn-gold play-btn" style={{ flex: 1, fontFamily: FONT }}>
                             ▶ PLAY
                           </button>
                         )}
