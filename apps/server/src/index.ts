@@ -1,4 +1,5 @@
 import { createServer } from 'http';
+import fs from 'fs';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyCors from '@fastify/cors';
@@ -66,10 +67,13 @@ if (!isDev) {
   });
 
   app.setNotFoundHandler((req, reply) => {
-    if (req.url.startsWith('/api') || req.url.startsWith('/game') || req.url.startsWith('/platform')) {
+    const url = req.url.split('?')[0];
+    if (url.startsWith('/api') || url.startsWith('/game') || url.startsWith('/platform')) {
       reply.status(404).send('Not found');
     } else {
-      reply.sendFile('index.html', clientDist);
+      // SPAフォールバック: ReactアプリのHTMLを直接返す
+      const indexPath = path.join(clientDist, 'index.html');
+      reply.type('text/html').send(fs.readFileSync(indexPath, 'utf8'));
     }
   });
 }
