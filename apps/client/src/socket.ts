@@ -16,13 +16,18 @@ socket.on('connect', () => {
 
   const session = loadSession();
   // セッションなし or すでにルームにいる → スキップ
-  if (!session || useStore.getState().room) return;
+  if (!session || useStore.getState().room) {
+    useStore.getState().setReconnecting(false);
+    return;
+  }
 
   // セッションがある && ルームにいない → 自動再参加を試みる
+  useStore.getState().setReconnecting(true);
   socket.emit(
     'room:join',
     { playerName: session.name, code: session.code },
     (res: { ok: boolean; room?: RoomSnapshot; error?: string }) => {
+      useStore.getState().setReconnecting(false);
       if (res.ok && res.room) {
         // 成功: me を新しい socket.id で更新
         const isHost = res.room.players.find(p => p.name === session.name)?.isHost ?? false;
@@ -33,6 +38,8 @@ socket.on('connect', () => {
           joinedAt: Date.now(),
         });
         useStore.getState().setRoom(res.room);
+        // セッションのgameTypeを更新（復帰したルームのgameTypeに合わせる）
+        useStore.getState().setPendingGameType(res.room.gameType);
       } else {
         // ルームが消えていた（サーバー再起動など）→ ホームへ
         clearSession();

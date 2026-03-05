@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { socket } from '../socket';
 import { useStore } from '../store';
 import { clearSession } from '../utils/session';
@@ -15,6 +15,7 @@ export default function Game() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const isHost = me?.isHost ?? false;
   const [showLeaveMenu, setShowLeaveMenu] = useState(false);
+  const [iframeKey, setIframeKey] = useState(0);
 
   if (!room || !me || !room.activeGameId) return null;
 
@@ -46,14 +47,19 @@ export default function Game() {
 
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [isHost]);
+  }, [isHost, sendToIframe]);
 
   // iframeにメッセージを送るヘルパー
-  function sendToIframe(msg: object) {
+  // sandboxed iframe は origin が null になるため "*" を使用
+  const sendToIframe = useCallback((msg: object) => {
     iframeRef.current?.contentWindow?.postMessage(
       { _platform: true, ...msg },
-      SERVER, // origin を限定（セキュリティ）
+      '*',
     );
+  }, []);
+
+  function reloadGame() {
+    setIframeKey(k => k + 1);
   }
 
   // iframeロード完了時: 初期化メッセージを送信
@@ -77,21 +83,21 @@ export default function Game() {
     if (gameState !== null) {
       sendToIframe({ type: 'state', state: gameState });
     }
-  }, [gameState]);
+  }, [gameState, sendToIframe]);
 
   // サーバーからのアクション（ホストのみ受け取る）をiframeへ転送
   useEffect(() => {
     if (lastAction && isHost) {
       sendToIframe({ type: 'action', action: lastAction.action, playerId: lastAction.playerId });
     }
-  }, [lastAction, isHost]);
+  }, [lastAction, isHost, sendToIframe]);
 
   // サーバーからのイベントをiframeへ転送
   useEffect(() => {
     if (lastEvent !== null) {
       sendToIframe({ type: 'event', event: lastEvent });
     }
-  }, [lastEvent]);
+  }, [lastEvent, sendToIframe]);
 
   function backToRoom() {
     useStore.getState().setActiveGame('');
@@ -166,6 +172,14 @@ export default function Game() {
           <span style={{ fontSize: 12, color: '#666' }}>
             by {activeGame?.deployedBy}
           </span>
+
+          {/* リロードボタン */}
+          <button onClick={reloadGame} style={{
+            padding: '5px 10px', borderRadius: 8, border: '1px solid #333',
+            background: 'transparent', color: '#888', cursor: 'pointer', fontSize: 13,
+          }} title="ゲームをリロード">
+            🔄
+          </button>
 
           {/* ─── ホームに戻るドロップダウン ─── */}
           <div style={{ position: 'relative', marginLeft: 4 }}>
@@ -252,6 +266,7 @@ export default function Game() {
 
       {/* ゲーム iframe */}
       <iframe
+        key={iframeKey}
         ref={iframeRef}
         src={`${SERVER}/game/${room.code}/${room.activeGameId}`}
         onLoad={onIframeLoad}

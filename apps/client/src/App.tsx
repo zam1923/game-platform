@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useStore } from './store';
 import { useAuthStore } from './authStore';
+import { socket } from './socket';
+import { loadSession } from './utils/session';
 import Lobby from './pages/Lobby';
 import Room from './pages/Room';
 import Game from './pages/Game';
@@ -12,22 +14,29 @@ export default function App() {
   const room = useStore((s) => s.room);
   const me = useStore((s) => s.me);
   const navPage = useStore((s) => s.navPage);
+  const isReconnecting = useStore((s) => s.isReconnecting);
   const { loading } = useAuthStore();
 
-  // 招待リンク (?room=ABCD12) の処理（初回マウント時のみ）
+  // 初回マウント時: socketを接続してセッション復帰を試みる
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const roomCode = params.get('room');
     if (roomCode) {
       useStore.getState().setPendingRoomCode(roomCode.toUpperCase());
       useStore.getState().setNavPage('lobby');
-      // URLをクリーン（履歴に ?room= を残さない）
       window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // セッションがある場合、即座に接続してセッション復帰
+    if (!socket.connected) {
+      const session = loadSession();
+      if (session) useStore.getState().setReconnecting(true);
+      socket.connect();
     }
   }, []);
 
-  // Supabase セッション読み込み中
-  if (loading) {
+  // Supabase セッション読み込み中 or セッション復帰中
+  if (loading || isReconnecting) {
     return (
       <div style={{
         minHeight: '100vh',

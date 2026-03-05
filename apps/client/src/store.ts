@@ -65,6 +65,10 @@ interface PlatformStore {
   isDisconnected: boolean;
   setDisconnected: (v: boolean) => void;
 
+  // セッション復帰中フラグ（リロード後の自動再参加中）
+  isReconnecting: boolean;
+  setReconnecting: (v: boolean) => void;
+
   // ゲームタイプ選択（Home → Lobby に引き継ぐ）
   pendingGameType: GameType | null;
   setPendingGameType: (t: GameType | null) => void;
@@ -99,11 +103,13 @@ export const useStore = create<PlatformStore>((set) => ({
   generatingGames: [],
   navPage: 'home',
   isDisconnected: false,
+  isReconnecting: false,
   pendingGameType: null,
   pendingRoomCode: null,
 
   setNavPage: (page) => set({ navPage: page }),
   setDisconnected: (v) => set({ isDisconnected: v }),
+  setReconnecting: (v) => set({ isReconnecting: v }),
   setPendingGameType: (t) => set({ pendingGameType: t }),
   setPendingRoomCode: (code) => set({ pendingRoomCode: code }),
 
