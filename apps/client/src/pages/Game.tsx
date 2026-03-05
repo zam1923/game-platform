@@ -21,6 +21,15 @@ export default function Game() {
 
   const activeGame = room.games.find(g => g.id === room.activeGameId);
 
+  // iframeにメッセージを送るヘルパー
+  // sandboxed iframe は origin が null になるため "*" を使用
+  const sendToIframe = useCallback((msg: object) => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { _platform: true, ...msg },
+      '*',
+    );
+  }, []);
+
   // iframe → サーバー: postMessageを受け取り転送
   useEffect(() => {
     function handler(e: MessageEvent) {
@@ -48,15 +57,6 @@ export default function Game() {
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
   }, [isHost, sendToIframe]);
-
-  // iframeにメッセージを送るヘルパー
-  // sandboxed iframe は origin が null になるため "*" を使用
-  const sendToIframe = useCallback((msg: object) => {
-    iframeRef.current?.contentWindow?.postMessage(
-      { _platform: true, ...msg },
-      '*',
-    );
-  }, []);
 
   function reloadGame() {
     setIframeKey(k => k + 1);
