@@ -230,7 +230,15 @@ export default function Room() {
     finally { setDeploying(false); }
   }
 
-  function selectGame(gameId: string) { if (isHost) socket.emit('game:select', { gameId }); }
+  function selectGame(gameId: string) {
+    if (room!.gameType === 'solo') {
+      // ソロ: 自分のstoreのみ更新（他のプレイヤーに影響しない）
+      useStore.getState().setActiveGame(gameId);
+    } else {
+      // マルチ: ホストのみsocket送信（全員のゲームが変わる）
+      if (isHost) socket.emit('game:select', { gameId });
+    }
+  }
 
   async function rateGame(gameId: string, rating: number) {
     if (!supabase || !user) return;
@@ -633,7 +641,7 @@ export default function Room() {
                       </div>
 
                       <div style={{ display: 'flex', gap: 8 }}>
-                        {isHost && (
+                        {(isHost || room.gameType === 'solo') && (
                           <button onClick={() => selectGame(game.id)} className="room-btn-gold play-btn" style={{ flex: 1, fontFamily: FONT }}>
                             ▶ PLAY
                           </button>
