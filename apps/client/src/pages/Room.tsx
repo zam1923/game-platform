@@ -132,8 +132,6 @@ export default function Room() {
   const [deployMsg, setDeployMsg] = useState('');
   const [challengeInput, setChallengeInput] = useState('');
   const [copiedInvite, setCopiedInvite] = useState(false);
-  // クレジット残高（将来Supabaseから取得）
-  const userCredits = 0;
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [showLeaveMenu, setShowLeaveMenu] = useState(false);
   const [savingGameId, setSavingGameId] = useState<string | null>(null);
@@ -554,79 +552,36 @@ export default function Room() {
 
             {/* プラットフォームのAI */}
             <InnerSection style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <FieldLabel style={{ margin: 0 }}>✨ AIで自動生成</FieldLabel>
-                {userCredits > 0 && (
-                  <span style={{ fontSize: 10, color: '#c8a06a', background: 'rgba(196,122,42,0.12)', border: '1px solid #5a2d0a', padding: '2px 8px' }}>
-                    💎 {userCredits} cr
-                  </span>
-                )}
-              </div>
-
-              {userCredits > 0 ? (
-                /* ─ クレジットあり: AI選択して生成 ─ */
-                <>
-                  <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                    {(['claude', 'openai', 'gemini'] as const).map(p => {
-                      const info = AI_INFO[p];
-                      const sel = selectedProvider === p;
-                      return (
-                        <button key={p} onClick={() => setSelectedProvider(p)} style={{
-                          flex: 1, padding: '8px 4px',
-                          border: `2px solid ${sel ? info.color : '#3d1f0a'}`,
-                          background: sel ? `${info.color}15` : 'rgba(30,15,4,0.6)',
-                          color: sel ? info.color : '#7c5a30',
-                          fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                          transition: 'all 0.1s',
-                        }}>
-                          {info.emoji} {info.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <button onClick={generateGame} disabled={generating} style={{
-                    width: '100%', padding: '11px 0', fontSize: 12, fontWeight: 700,
-                    cursor: generating ? 'not-allowed' : 'pointer',
-                    border: `2px solid ${generating ? '#3d1f0a' : AI_INFO[selectedProvider].color}`,
-                    background: generating ? 'rgba(30,15,4,0.4)' : `${AI_INFO[selectedProvider].color}18`,
-                    color: generating ? '#5a3a18' : AI_INFO[selectedProvider].color,
-                    fontFamily: FONT, transition: 'all 0.15s',
-                  }}>
-                    {generating ? '⏳ GENERATING...' : `🎮 ${AI_INFO[selectedProvider].emoji} ${AI_INFO[selectedProvider].label}で作る`}
-                  </button>
-                  {generateMsg && <div style={{ fontSize: 12, marginTop: 8, color: '#f87171' }}>{generateMsg}</div>}
-                </>
-              ) : (
-                /* ─ クレジットなし: 購入導線 ─ */
-                <div style={{
-                  padding: '18px 16px',
-                  border: '1px dashed #3d1f0a',
-                  background: 'rgba(8,4,1,0.5)',
-                  textAlign: 'center',
-                }}>
-                  <div style={{ fontSize: 22, marginBottom: 10 }}>🔒</div>
-                  <div style={{ fontFamily: FONT, fontSize: 7, color: '#c8a06a', marginBottom: 6 }}>
-                    クレジットが必要です
-                  </div>
-                  <div style={{ fontSize: 11, color: '#5a3a18', marginBottom: 16, lineHeight: 1.8 }}>
-                    1回の生成 = 1クレジット<br />
-                    現在の残高: <span style={{ color: '#f87171' }}>0 cr</span>
-                  </div>
-                  {user ? (
-                    <button
-                      onClick={() => window.open('/pricing', '_blank')}
-                      className="room-btn-gold"
-                      style={{ fontFamily: FONT, fontSize: 8, width: '100%', padding: '11px 0' }}
-                    >
-                      💳 クレジットを購入
+              <FieldLabel>✨ {room.gameType === 'solo' ? 'AIが自動生成' : 'プラットフォームのAIで作る'}</FieldLabel>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {(['claude', 'openai', 'gemini'] as const).map(p => {
+                  const info = AI_INFO[p];
+                  const sel = selectedProvider === p;
+                  return (
+                    <button key={p} onClick={() => setSelectedProvider(p)} style={{
+                      flex: 1, padding: '8px 4px',
+                      border: `2px solid ${sel ? info.color : '#3d1f0a'}`,
+                      background: sel ? `${info.color}15` : 'rgba(30,15,4,0.6)',
+                      color: sel ? info.color : '#7c5a30',
+                      fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      transition: 'all 0.1s',
+                    }}>
+                      {info.emoji} {info.label}
                     </button>
-                  ) : (
-                    <div style={{ fontFamily: FONT, fontSize: 7, color: '#5a3a18', lineHeight: 2.2 }}>
-                      ログインすると<br />クレジットを購入できます
-                    </div>
-                  )}
-                </div>
-              )}
+                  );
+                })}
+              </div>
+              <button onClick={generateGame} disabled={generating} style={{
+                width: '100%', padding: '11px 0', fontSize: 12, fontWeight: 700,
+                cursor: generating ? 'not-allowed' : 'pointer',
+                border: `2px solid ${generating ? '#3d1f0a' : AI_INFO[selectedProvider].color}`,
+                background: generating ? 'rgba(30,15,4,0.4)' : `${AI_INFO[selectedProvider].color}18`,
+                color: generating ? '#5a3a18' : AI_INFO[selectedProvider].color,
+                fontFamily: FONT, transition: 'all 0.15s',
+              }}>
+                {generating ? '⏳ GENERATING...' : `🎮 ${AI_INFO[selectedProvider].emoji} ${AI_INFO[selectedProvider].label}で作る`}
+              </button>
+              {generateMsg && <div style={{ fontSize: 12, marginTop: 8, color: '#f87171' }}>{generateMsg}</div>}
             </InnerSection>
 
             {/* HTMLデプロイ */}
