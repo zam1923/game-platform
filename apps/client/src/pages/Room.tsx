@@ -509,8 +509,13 @@ export default function Room() {
             {!isChallengeMode && (
               <div style={{ marginBottom: 16 }}>
                 <FieldLabel>ゲーム内容</FieldLabel>
-                <input style={inputStyle} value={gameDesc} onChange={e => setGameDesc(e.target.value)}
-                  placeholder={room.gameType === 'solo' ? '例: ブロック崩し、神経衰弱...' : '例: 爆弾ワードゲーム、マルバツ...'}
+                <textarea
+                  style={{ ...inputStyle, height: 110, resize: 'vertical', lineHeight: 1.7, fontFamily: 'inherit' }}
+                  value={gameDesc}
+                  onChange={e => setGameDesc(e.target.value)}
+                  placeholder={room.gameType === 'solo'
+                    ? '例: 障害物を避けながら進むランナーゲーム。ジャンプで回避、スコアが上がるほど速くなる。'
+                    : '例: 全員でお題のワードを当て合うゲーム。ヒントを1つずつ出し合い、先に正解したチームが勝ち。'}
                 />
               </div>
             )}
