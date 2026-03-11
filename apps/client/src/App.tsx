@@ -40,6 +40,7 @@ export default function App() {
 
     // Android: OAuthコールバックのディープリンクを処理
     if (Capacitor.isNativePlatform() && supabase) {
+      const supabaseClient = supabase;
       const handleAppUrl = CapApp.addListener('appUrlOpen', async ({ url }) => {
         if (url.startsWith(OAUTH_REDIRECT_SCHEME.replace('://auth/callback', ''))) {
           // URLフラグメントからトークンを取得
@@ -49,7 +50,7 @@ export default function App() {
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token');
           if (accessToken && refreshToken) {
-            await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+            await supabaseClient.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
           }
           await Browser.close();
         }
