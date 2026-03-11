@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import type { User, Session } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { supabase } from './supabase';
+
+export const OAUTH_REDIRECT_SCHEME = 'com.gameplatform.app://auth/callback';
 
 interface AuthStore {
   user: User | null;
@@ -23,10 +27,26 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   signInWithGoogle: async () => {
     if (!supabase) return;
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
-    });
+
+    if (Capacitor.isNativePlatform()) {
+      // Android: カスタムURLスキームでOAuthリダイレクトを処理
+      const { data } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: OAUTH_REDIRECT_SCHEME,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (data?.url) {
+        await Browser.open({ url: data.url });
+      }
+    } else {
+      // Web: 通常のリダイレクト
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+    }
   },
 
   signOut: async () => {

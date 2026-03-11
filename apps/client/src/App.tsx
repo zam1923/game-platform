@@ -1,6 +1,10 @@
 import { useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { useStore } from './store';
-import { useAuthStore } from './authStore';
+import { useAuthStore, OAUTH_REDIRECT_SCHEME } from './authStore';
+import { supabase } from './supabase';
 import { socket } from './socket';
 import { loadSession } from './utils/session';
 import Lobby from './pages/Lobby';
@@ -32,6 +36,25 @@ export default function App() {
       const session = loadSession();
       if (session) useStore.getState().setReconnecting(true);
       socket.connect();
+    }
+
+    // Android: OAuthコールバックのディープリンクを処理
+    if (Capacitor.isNativePlatform() && supabase) {
+      const handleAppUrl = CapApp.addListener('appUrlOpen', async ({ url }) => {
+        if (url.startsWith(OAUTH_REDIRECT_SCHEME.replace('://auth/callback', ''))) {
+          // URLフラグメントからトークンを取得
+          const urlWithHash = url.replace('com.gameplatform.app://', 'https://placeholder.com/');
+          const parsed = new URL(urlWithHash);
+          const hashParams = new URLSearchParams(parsed.hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          if (accessToken && refreshToken) {
+            await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          }
+          await Browser.close();
+        }
+      });
+      return () => { handleAppUrl.then((h) => h.remove()); };
     }
   }, []);
 

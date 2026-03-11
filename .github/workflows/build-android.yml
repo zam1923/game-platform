@@ -40,6 +40,11 @@ jobs:
         working-directory: apps/client
         run: npx cap add android
 
+      - name: Add deep link intent filter to AndroidManifest
+        working-directory: apps/client/android/app/src/main
+        run: |
+          sed -i 's|</activity>|        <intent-filter>\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="com.gameplatform.app" android:host="auth" />\n            </intent-filter>\n        </activity>|' AndroidManifest.xml
+
       - name: Sync Capacitor
         working-directory: apps/client
         run: npx cap sync android
