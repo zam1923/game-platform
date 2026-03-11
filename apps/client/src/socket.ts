@@ -2,8 +2,9 @@ import { io, Socket } from 'socket.io-client';
 import { useStore, type GeneratingInfo, type RoomSnapshot } from './store';
 import { loadSession, clearSession } from './utils/session';
 
-// DEV時もViteプロキシ経由で接続（空文字 = 同じオリジン）
-const URL = '';
+// DEV時はViteプロキシ経由で接続（空文字 = 同じオリジン）
+// Capacitor(Android)ビルド時は VITE_SERVER_URL に Railway.app の URL を設定
+const URL = import.meta.env.VITE_SERVER_URL ?? '';
 
 export const socket: Socket = io(URL, {
   autoConnect: false,
