@@ -11,6 +11,7 @@ import { registerSocketHandlers } from './socket-handler.js';
 import { registerDeployRoute } from './api/deploy.js';
 import { registerGenerateRoute } from './api/generate.js';
 import { registerGameServeRoute } from './api/game-serve.js';
+import { loadAllRoomsFromDb } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV !== 'production';
@@ -42,6 +43,21 @@ const app = Fastify({
 });
 
 const rooms = new RoomManager();
+
+// DBからルームを復元（サーバー再起動後もAPIキーが有効になる）
+const persistedRooms = await loadAllRoomsFromDb();
+for (const r of persistedRooms) {
+  rooms.restoreRoom({
+    code: r.code,
+    apiKey: r.api_key,
+    gameType: r.type,
+    ownerId: r.owner_id ?? undefined,
+    name: r.name ?? undefined,
+  });
+}
+if (persistedRooms.length > 0) {
+  console.log(`📦 Restored ${persistedRooms.length} rooms from DB`);
+}
 
 // CORS: Custom GPT Actions等の外部クライアントからAPIを呼べるようにする
 await app.register(fastifyCors, {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { socket } from '../socket';
 import { useStore } from '../store';
 import { useAuthStore } from '../authStore';
@@ -23,25 +23,33 @@ const CSS = `
   @keyframes lobbySpin { to { transform: rotate(360deg); } }
 `;
 
+type SavedRoom = { code: string; name: string | null };
+
 export default function Lobby() {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
+  const [roomName, setRoomName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [savedSession, setSavedSession] = useState<{ name: string; code: string } | null>(null);
+  const [savedMultiRooms, setSavedMultiRooms] = useState<SavedRoom[]>([]);
   // BookTransitionを表示するか + 完了後に実行するコールバック
   const [pendingComplete, setPendingComplete] = useState<(() => void) | null>(null);
+  const soloAutoTriggered = useRef(false);
 
   const { setMe, setRoom } = useStore();
   const pendingGameType = useStore((s) => s.pendingGameType);
   const pendingRoomCode = useStore((s) => s.pendingRoomCode);
   const { user } = useAuthStore();
 
+  const displayName = user
+    ? (user.user_metadata?.full_name || user.user_metadata?.name || 'Player')
+    : name;
+
   useEffect(() => {
     const session = loadSession();
     if (session) {
       setSavedSession(session);
-      // 前回のgameTypeをpendingGameTypeに復元（未設定の場合のみ）
       if (!pendingGameType && session.gameType) {
         useStore.getState().setPendingGameType(session.gameType);
       }
@@ -62,6 +70,24 @@ export default function Lobby() {
     }
   }, [pendingRoomCode]);
 
+  // ソロ + ログイン済み: マウント時に自動でソロルームへ
+  useEffect(() => {
+    if (pendingGameType === 'solo' && user && displayName && !soloAutoTriggered.current) {
+      soloAutoTriggered.current = true;
+      enterSoloRoom();
+    }
+  }, [pendingGameType, user?.id, displayName]);
+
+  // マルチ + ログイン済み: 保存済みルーム一覧を取得
+  useEffect(() => {
+    if (pendingGameType === 'multi' && user) {
+      connect();
+      socket.emit('room:get-saved', { userId: user.id }, (res: { ok: boolean; rooms?: SavedRoom[] }) => {
+        if (res.ok && res.rooms) setSavedMultiRooms(res.rooms);
+      });
+    }
+  }, [pendingGameType, user?.id]);
+
   function goHome() {
     playClick();
     useStore.getState().setNavPage('home');
@@ -71,11 +97,6 @@ export default function Lobby() {
     if (!socket.connected) socket.connect();
   }
 
-  const displayName = user
-    ? (user.user_metadata?.full_name || user.user_metadata?.name || 'Player')
-    : name;
-
-  // BookTransitionを表示し、完了後にfnを実行
   function triggerTransition(fn: () => void) {
     setPendingComplete(() => fn);
   }
@@ -87,15 +108,42 @@ export default function Lobby() {
     }
   }
 
+  // ─── ソロルーム（常に同じルームを使用）────────────────────
+  function enterSoloRoom() {
+    if (!displayName.trim()) return setError('名前を入力してください');
+    setLoading(true);
+    setError('');
+    connect();
+
+    socket.emit('room:get-or-create-solo', {
+      playerName: displayName.trim(),
+      userId: user!.id,
+    }, (res: { ok: boolean; code?: string; apiKey?: string; room?: object; error?: string }) => {
+      setLoading(false);
+      if (!res.ok) return setError(res.error ?? 'エラーが発生しました');
+      playSuccess();
+      const c = res.code!;
+      triggerTransition(() => {
+        saveSession(displayName.trim(), c, 'solo');
+        setMe({ id: socket.id!, name: displayName.trim(), isHost: true, joinedAt: Date.now() });
+        if (res.room) setRoom(res.room as Parameters<typeof setRoom>[0]);
+      });
+    });
+  }
+
+  // ─── マルチルーム作成 ──────────────────────────────────
   async function createRoom() {
     if (!displayName.trim()) return setError('名前を入力してください');
     setLoading(true);
     setError('');
     connect();
 
-    socket.emit('room:create', { playerName: displayName.trim(), gameType: pendingGameType ?? 'multi' }, (res: {
-      ok: boolean; code?: string; apiKey?: string; error?: string;
-    }) => {
+    socket.emit('room:create', {
+      playerName: displayName.trim(),
+      gameType: pendingGameType ?? 'multi',
+      userId: user?.id,
+      roomName: roomName.trim() || undefined,
+    }, (res: { ok: boolean; code?: string; apiKey?: string; error?: string }) => {
       setLoading(false);
       if (!res.ok) return setError(res.error ?? 'エラーが発生しました');
       playSuccess();
@@ -108,6 +156,7 @@ export default function Lobby() {
     });
   }
 
+  // ─── ルーム参加 ────────────────────────────────────────
   async function joinRoom(joinName?: string, joinCode?: string) {
     const n = (joinName ?? displayName).trim();
     const c = (joinCode ?? code).trim();
@@ -142,13 +191,13 @@ export default function Lobby() {
   }
 
   const modeInfo = pendingGameType ? GAME_TYPE_LABELS[pendingGameType] : null;
+  const isSolo = pendingGameType === 'solo';
 
   return (
     <>
       <style>{CSS}</style>
       <LobbyCanvas />
 
-      {/* BookTransitionオーバーレイ */}
       {pendingComplete && (
         <BookTransition onComplete={onTransitionComplete} />
       )}
@@ -212,7 +261,7 @@ export default function Lobby() {
         </div>
 
         {/* 前のセッションに戻るバナー */}
-        {savedSession && (
+        {savedSession && !isSolo && (
           <div style={{
             background: 'rgba(8,4,1,0.88)',
             border: '2px solid #3d1f0a',
@@ -294,20 +343,105 @@ export default function Lobby() {
             )}
           </div>
 
-          {/* ルームを作る */}
-          <LobbyBtn
-            onClick={() => { playClick(); createRoom(); }}
-            disabled={loading}
-            variant="primary"
-          >
-            {loading
-              ? <><span style={{ display: 'inline-block', animation: 'lobbySpin 0.8s linear infinite' }}>◌</span> LOADING...</>
-              : '✨ CREATE ROOM'}
-          </LobbyBtn>
+          {/* ─── ソロモード（ログイン済み）: 固定ルーム ─── */}
+          {isSolo && user ? (
+            <LobbyBtn
+              onClick={() => { playClick(); enterSoloRoom(); }}
+              disabled={loading}
+              variant="primary"
+            >
+              {loading
+                ? <><span style={{ display: 'inline-block', animation: 'lobbySpin 0.8s linear infinite' }}>◌</span> LOADING...</>
+                : '🎮 ENTER MY ROOM'}
+            </LobbyBtn>
 
-          {/* ルームコード（MULTIのみ表示） */}
-          {pendingGameType !== 'solo' && (
+          ) : isSolo ? (
+            /* ソロ・ゲスト: 通常のCREATE ROOM */
+            <LobbyBtn
+              onClick={() => { playClick(); createRoom(); }}
+              disabled={loading}
+              variant="primary"
+            >
+              {loading
+                ? <><span style={{ display: 'inline-block', animation: 'lobbySpin 0.8s linear infinite' }}>◌</span> LOADING...</>
+                : '✨ CREATE ROOM'}
+            </LobbyBtn>
+
+          ) : (
+            /* ─── マルチモード ─── */
             <>
+              {/* ルーム名（任意） */}
+              <div>
+                <div style={{ fontFamily: FONT, fontSize: 7, color: '#5a3a18', marginBottom: 8 }}>
+                  ROOM NAME <span style={{ color: '#3d1f0a' }}>(任意)</span>
+                </div>
+                <input
+                  value={roomName}
+                  onChange={e => setRoomName(e.target.value)}
+                  placeholder="例: 友達グループ"
+                  maxLength={30}
+                  style={{
+                    width: '100%', padding: '12px 14px',
+                    border: '2px solid #3d1f0a',
+                    background: 'rgba(20,10,2,0.6)',
+                    color: '#c8a06a',
+                    fontFamily: FONT, fontSize: 9,
+                    outline: 'none', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <LobbyBtn
+                onClick={() => { playClick(); createRoom(); }}
+                disabled={loading}
+                variant="primary"
+              >
+                {loading
+                  ? <><span style={{ display: 'inline-block', animation: 'lobbySpin 0.8s linear infinite' }}>◌</span> LOADING...</>
+                  : '✨ CREATE ROOM'}
+              </LobbyBtn>
+
+              {/* 保存済みマルチルーム一覧（ログイン済みのみ） */}
+              {user && savedMultiRooms.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontFamily: FONT, fontSize: 7, color: '#5a3a18', marginBottom: 4 }}>
+                    MY ROOMS
+                  </div>
+                  {savedMultiRooms.map(r => (
+                    <div key={r.code} style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      border: '1px solid #2d1208',
+                      padding: '8px 12px',
+                      background: 'rgba(20,10,2,0.4)',
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: FONT, fontSize: 7, color: '#c8a06a' }}>
+                          {r.name ?? '(無名)'}
+                        </div>
+                        <div style={{ fontFamily: FONT, fontSize: 6, color: '#5a3a18', marginTop: 3 }}>
+                          {r.code}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { playClick(); joinRoom(displayName, r.code); }}
+                        disabled={loading}
+                        onMouseEnter={playHover}
+                        style={{
+                          fontFamily: FONT, fontSize: 7,
+                          padding: '6px 10px',
+                          background: 'transparent',
+                          border: '1px solid #3d1f0a',
+                          color: '#7c5a30',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        REJOIN
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* 区切り */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1, height: 1, background: '#2a1208' }} />

@@ -20,6 +20,12 @@ importers:
       '@capacitor/android':
         specifier: ^7.0.0
         version: 7.6.0(@capacitor/core@7.6.0)
+      '@capacitor/app':
+        specifier: ^7.0.0
+        version: 7.1.2(@capacitor/core@7.6.0)
+      '@capacitor/browser':
+        specifier: ^7.0.0
+        version: 7.0.4(@capacitor/core@7.6.0)
       '@capacitor/core':
         specifier: ^7.0.0
         version: 7.6.0
@@ -72,6 +78,9 @@ importers:
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
+      '@supabase/supabase-js':
+        specifier: ^2.99.0
+        version: 2.99.0
       fastify:
         specifier: ^5.2.1
         version: 5.8.2
@@ -197,6 +206,16 @@ packages:
     resolution: {integrity: sha512-xpfAOGcgeQnTw8C0E9nLjW15lQ6TL2ccieZks93hNiQYknnQT8FQaH2paMYkLYrQ0JfRImdBXbQ1u6sZ4kVa3w==}
     peerDependencies:
       '@capacitor/core': ^7.6.0
+
+  '@capacitor/app@7.1.2':
+    resolution: {integrity: sha512-d4I/oF/PRu4megL7/IGKYfe5j7yzSON1FRFgq6kH+m5kH6g7V+wyjHRLauCzGNjdRx4S+nWOumINds0qcRBtKg==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
+
+  '@capacitor/browser@7.0.4':
+    resolution: {integrity: sha512-XjooNDHEalQoMAb5/Ip7pGcPCIPHEaBv/s/B6K83qVZE66MXC/6enhw18TNaMNtL7U8bGOe6tEG1FFbQVf3PHw==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
 
   '@capacitor/cli@7.6.0':
     resolution: {integrity: sha512-3PL8xIgXLj1037NqmuzoKXNOi80AdY7eSCnX6/A7RfjFqT8TEiCL+PlHsHtg6/BSZGSmmxGGBjH3nXrNCRoFhw==}
@@ -1811,6 +1830,14 @@ snapshots:
       '@babel/helper-validator-identifier': 7.28.5
 
   '@capacitor/android@7.6.0(@capacitor/core@7.6.0)':
+    dependencies:
+      '@capacitor/core': 7.6.0
+
+  '@capacitor/app@7.1.2(@capacitor/core@7.6.0)':
+    dependencies:
+      '@capacitor/core': 7.6.0
+
+  '@capacitor/browser@7.0.4(@capacitor/core@7.6.0)':
     dependencies:
       '@capacitor/core': 7.6.0
 
