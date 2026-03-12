@@ -44,6 +44,8 @@ export interface Room {
   challengePrompt: string | null;
   gameType: GameType;
   createdAt: number;
+  ownerId?: string;   // Supabase user ID（ログイン済みユーザーのルーム）
+  name?: string;      // マルチルームの表示名
 }
 
 export interface RoomSnapshot {
@@ -56,6 +58,7 @@ export interface RoomSnapshot {
   creationMode: CreationMode;
   challengePrompt: string | null;
   gameType: GameType;
+  name?: string;
 }
 
 // ゲーム生成中の通知用
@@ -78,6 +81,7 @@ export function toSnapshot(room: Room): RoomSnapshot {
     creationMode: room.creationMode,
     challengePrompt: room.challengePrompt,
     gameType: room.gameType,
+    name: room.name,
   };
 }
 
@@ -87,7 +91,7 @@ export class RoomManager {
   private emptyRoomTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly GRACE_MS = 60 * 60 * 1000; // 60分（ゲーム作成中の切断でも復帰できる）
 
-  createRoom(host: Player, gameType: GameType = 'multi'): Room {
+  createRoom(host: Player, gameType: GameType = 'multi', ownerId?: string, name?: string): Room {
     const code = this.uniqueCode();
     const apiKey = nanoid(24);
     const room: Room = {
@@ -101,10 +105,41 @@ export class RoomManager {
       challengePrompt: null,
       gameType,
       createdAt: Date.now(),
+      ownerId,
+      name,
     };
     this.rooms.set(code, room);
     this.playerToRoom.set(host.id, code);
     return room;
+  }
+
+  // DBから復元した空ルームをメモリに登録（プレイヤーなし）
+  restoreRoom(data: { code: string; apiKey: string; gameType: GameType; ownerId?: string; name?: string }): Room {
+    const existing = this.rooms.get(data.code);
+    if (existing) return existing;
+    const room: Room = {
+      code: data.code,
+      apiKey: data.apiKey,
+      players: new Map(),
+      phase: 'waiting',
+      games: [],
+      activeGameId: null,
+      creationMode: 'free',
+      challengePrompt: null,
+      gameType: data.gameType,
+      createdAt: Date.now(),
+      ownerId: data.ownerId,
+      name: data.name,
+    };
+    this.rooms.set(data.code, room);
+    return room;
+  }
+
+  findSoloRoomByOwner(ownerId: string): Room | null {
+    for (const room of this.rooms.values()) {
+      if (room.ownerId === ownerId && room.gameType === 'solo') return room;
+    }
+    return null;
   }
 
   joinRoom(code: string, player: Player): Room | { error: string } {
