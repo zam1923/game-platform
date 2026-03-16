@@ -37,6 +37,16 @@ export async function deleteRoomFromDb(code: string): Promise<void> {
   if (error) console.error('deleteRoomFromDb error:', error.message);
 }
 
+export async function getRoomByApiKeyFromDb(apiKey: string): Promise<PersistedRoom | null> {
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from('persistent_rooms')
+    .select('code, api_key, name, type, owner_id')
+    .eq('api_key', apiKey)
+    .maybeSingle();
+  return data as PersistedRoom | null;
+}
+
 export async function getSoloRoomFromDb(ownerId: string): Promise<PersistedRoom | null> {
   if (!supabase) return null;
   const { data } = await supabase
