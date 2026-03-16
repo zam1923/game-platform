@@ -3,7 +3,7 @@ import { useAuthStore } from '../authStore';
 import { useStore } from '../store';
 import type { GameType } from '../store';
 import { isSupabaseEnabled } from '../supabase';
-import { playClick, playHover } from '../utils/sound';
+import { playClick } from '../utils/sound';
 import { LibraryCanvas } from '../components/LibraryCanvas';
 
 const FONT = "'Press Start 2P', monospace";

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { RoomManager } from '../room-manager.js';
+import { getGameHtmlFromDb } from '../db.js';
 
 /**
  * GET /game/:roomCode/:gameId
@@ -15,18 +16,21 @@ export function registerGameServeRoute(
   }>('/game/:roomCode/:gameId', async (request, reply) => {
     const { roomCode, gameId } = request.params;
 
+    // メモリ上のゲームを探す
     const room = rooms.getRoom(roomCode);
-    if (!room) {
-      return reply.status(404).send('Room not found');
-    }
+    const game = room ? rooms.getGame(room, gameId) : null;
 
-    const game = rooms.getGame(room, gameId);
-    if (!game) {
-      return reply.status(404).send('Game not found');
+    // メモリになければDBから取得（サーバー再起動後の復元）
+    let html: string;
+    if (game) {
+      html = game.html;
+    } else {
+      const dbHtml = await getGameHtmlFromDb(gameId);
+      if (!dbHtml) {
+        return reply.status(404).send('Game not found');
+      }
+      html = dbHtml;
     }
-
-    // platform.jsのscriptタグをheadに注入してから返す
-    let html = game.html;
 
     // すでにplatform.jsが含まれていない場合は注入
     if (!html.includes('platform.js')) {

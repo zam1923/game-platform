@@ -150,7 +150,7 @@ export default function Room() {
 
   function copyCode() { navigator.clipboard.writeText(room!.code); }
   function copyInviteLink() {
-    navigator.clipboard.writeText(`${window.location.origin}/?room=${room!.code}`);
+    navigator.clipboard.writeText(room!.code);
     setCopiedInvite(true);
     setTimeout(() => setCopiedInvite(false), 2000);
   }

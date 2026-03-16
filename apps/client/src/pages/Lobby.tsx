@@ -5,7 +5,7 @@ import { useAuthStore } from '../authStore';
 import { saveSession, loadSession, clearSession } from '../utils/session';
 import { LobbyCanvas } from '../components/LobbyCanvas';
 import { BookTransition } from '../components/BookTransition';
-import { playClick, playHover, playSuccess } from '../utils/sound';
+import { playClick, playSuccess } from '../utils/sound';
 
 const FONT = "'Press Start 2P', monospace";
 

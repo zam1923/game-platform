@@ -5,6 +5,7 @@ import type { GameProvider } from '../room-manager.js';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { saveGameHtmlToDb } from '../db.js';
 
 interface GenerateBody {
   roomCode: string;
@@ -163,7 +164,7 @@ export function registerGenerateRoute(
       if (provider === 'claude') {
         const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
         const message = await client.messages.create({
-          model: 'claude-sonnet-4-5',
+          model: 'claude-sonnet-4-6',
           max_tokens: 8192,
           messages: [{ role: 'user', content: prompt }],
         });
@@ -206,6 +207,9 @@ export function registerGenerateRoute(
       deployedBy: playerName,
       provider,
     });
+
+    // ゲームHTMLをDBに保存
+    await saveGameHtmlToDb(game.id, room.code, html);
 
     // 全員にデプロイ通知
     io.to(room.code).emit('game:deployed', {
