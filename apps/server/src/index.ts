@@ -1,5 +1,4 @@
 import { createServer } from 'http';
-import fs from 'fs';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyCors from '@fastify/cors';
@@ -72,24 +71,29 @@ await app.register(async (fastify) => {
   registerGameServeRoute(fastify, rooms);
 });
 
-// 本番環境: ビルド済みクライアントと public/ を静的配信
+// public/ のみ配信（platform.js など）。Webクライアントは配信しない（アプリ専用）
 if (!isDev) {
-  const clientDist = path.join(__dirname, '../../../apps/client/dist');
   const publicDir = path.join(__dirname, '../../../public');
 
   await app.register(fastifyStatic, {
-    root: [publicDir, clientDist],
+    root: publicDir,
     prefix: '/',
   });
 
   app.setNotFoundHandler((req, reply) => {
     const url = req.url.split('?')[0];
-    if (url.startsWith('/api') || url.startsWith('/game') || url.startsWith('/platform')) {
+    if (url.startsWith('/api') || url.startsWith('/game') || url.startsWith('/socket.io')) {
       reply.status(404).send('Not found');
     } else {
-      // SPAフォールバック: ReactアプリのHTMLを直接返す
-      const indexPath = path.join(clientDist, 'index.html');
-      reply.type('text/html').send(fs.readFileSync(indexPath, 'utf8'));
+      // Webブラウザからのアクセスにはアプリ案内を返す
+      reply.type('text/html').send(`<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Game Platform</title>
+<style>body{margin:0;background:#0a0500;color:#c8a06a;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px;box-sizing:border-box}h1{font-size:20px;margin-bottom:16px}p{color:#7c5a30;line-height:1.8}</style>
+</head>
+<body><div><h1>📱 Game Platform</h1><p>このサービスはスマートフォンアプリ専用です。<br>アプリをインストールしてご利用ください。</p></div></body>
+</html>`);
     }
   });
 }
