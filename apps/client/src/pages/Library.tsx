@@ -243,8 +243,6 @@ export default function Library() {
                 cursor: 'pointer',
                 transition: 'border-color 0.1s, color 0.1s',
               }}
-              onMouseOver={e => { e.currentTarget.style.borderColor = '#c07820'; e.currentTarget.style.color = '#f0a030'; }}
-              onMouseOut={e => { e.currentTarget.style.borderColor = '#2a1a08'; e.currentTarget.style.color = '#5a3818'; }}
             >
               ← BACK
             </button>

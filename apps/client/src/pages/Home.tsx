@@ -251,17 +251,6 @@ function PixelBtn({ onClick, children, variant = 'ghost', size = 'md' }: PixelBt
   return (
     <button
       onClick={onClick}
-      onMouseEnter={e => {
-        playHover();
-        e.currentTarget.style.borderColor = '#f59e0b';
-        e.currentTarget.style.color = '#fcd34d';
-        e.currentTarget.style.boxShadow = '0 0 18px rgba(245,158,11,0.5)';
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = isPrimary ? '#c47a2a' : '#3d1f0a';
-        e.currentTarget.style.color = isPrimary ? '#fcd34d' : '#7c5a30';
-        e.currentTarget.style.boxShadow = isPrimary ? '0 0 8px rgba(196,122,42,0.3)' : 'none';
-      }}
       style={{
         fontFamily: FONT,
         fontSize: size === 'sm' ? 7 : 9,
@@ -294,15 +283,6 @@ function ModeCard({ icon, label, sub, accentColor, onClick }: ModeCardProps) {
   return (
     <button
       onClick={() => { playClick(); onClick(); }}
-      onMouseEnter={e => {
-        playHover();
-        e.currentTarget.style.borderColor = accentColor;
-        e.currentTarget.style.boxShadow = `0 0 16px ${accentColor}55`;
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = '#3d1f0a';
-        e.currentTarget.style.boxShadow = 'none';
-      }}
       style={{
         background: 'rgba(8, 4, 1, 0.7)',
         border: '2px solid #3d1f0a',

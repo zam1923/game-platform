@@ -16,7 +16,6 @@ const AI_INFO: Record<GameProvider, { label: string; emoji: string; color: strin
   manual:  { label: 'Manual', emoji: '⚙️', color: '#c8a06a' },
 };
 
-const CUSTOM_GPT_URL = 'https://chatgpt.com/g/g-69a407cbcc8c819184071fc910df88ee-game-platform-creator';
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -404,8 +403,6 @@ export default function Room() {
                       color: '#f0d090',
                       transition: 'background 0.1s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(196,122,42,0.15)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     <div style={{ fontWeight: 700, fontSize: 13 }}>🔄 一時退出</div>
                     <div style={{ fontSize: 11, color: '#7c5a30', marginTop: 3 }}>セッション保持（後で戻れる）</div>
@@ -419,8 +416,6 @@ export default function Room() {
                       color: '#f87171',
                       transition: 'background 0.1s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(200,50,30,0.15)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     <div style={{ fontWeight: 700, fontSize: 13 }}>🚪 退出</div>
                     <div style={{ fontSize: 11, color: '#7c5a30', marginTop: 3 }}>セッションをリセット</div>
@@ -612,8 +607,6 @@ export default function Room() {
                 display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
                 transition: 'background 0.15s',
               }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(212,160,90,0.18)')}
-                onMouseLeave={e => (e.currentTarget.style.background = copiedPrompt === 'claude' ? 'rgba(212,160,90,0.2)' : 'rgba(212,160,90,0.08)')}
               >
                 {copiedPrompt === 'claude' ? '✅ コピー済み！Claudeを開きます' : '🟠 Claudeで作る（高品質）'}
               </button>
@@ -627,8 +620,6 @@ export default function Room() {
                 display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
                 transition: 'background 0.15s',
               }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(16,163,127,0.18)')}
-                onMouseLeave={e => (e.currentTarget.style.background = copiedPrompt === 'chatgpt' ? 'rgba(16,163,127,0.2)' : 'rgba(16,163,127,0.08)')}
               >
                 {copiedPrompt === 'chatgpt' ? '✅ コピー済み！ChatGPTを開きます' : '🟢 ChatGPTで作る'}
               </button>

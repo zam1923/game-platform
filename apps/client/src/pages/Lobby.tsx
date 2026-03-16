@@ -216,7 +216,6 @@ export default function Lobby() {
         {/* 左上: ホームに戻る */}
         <button
           onClick={goHome}
-          onMouseEnter={playHover}
           style={{
             position: 'fixed', top: 20, left: 20,
             fontFamily: FONT, fontSize: 8,
@@ -226,10 +225,7 @@ export default function Lobby() {
             color: '#7c5a30',
             cursor: 'pointer',
             zIndex: 20,
-            transition: 'border-color 0.1s, color 0.1s',
           }}
-          onMouseOver={e => { e.currentTarget.style.borderColor = '#f59e0b'; e.currentTarget.style.color = '#fcd34d'; }}
-          onMouseOut={e => { e.currentTarget.style.borderColor = '#3d1f0a'; e.currentTarget.style.color = '#7c5a30'; }}
         >
           ← BACK
         </button>
@@ -425,7 +421,6 @@ export default function Lobby() {
                       <button
                         onClick={() => { playClick(); joinRoom(displayName, r.code); }}
                         disabled={loading}
-                        onMouseEnter={playHover}
                         style={{
                           fontFamily: FONT, fontSize: 7,
                           padding: '6px 10px',
@@ -507,19 +502,6 @@ function LobbyBtn({ onClick, children, disabled, variant = 'ghost' }: LobbyBtnPr
     <button
       onClick={onClick}
       disabled={disabled}
-      onMouseEnter={playHover}
-      onMouseOver={e => {
-        if (!disabled) {
-          e.currentTarget.style.borderColor = '#f59e0b';
-          e.currentTarget.style.color = '#fcd34d';
-          e.currentTarget.style.boxShadow = '0 0 16px rgba(245,158,11,0.45)';
-        }
-      }}
-      onMouseOut={e => {
-        e.currentTarget.style.borderColor = isPrimary ? '#c47a2a' : '#3d1f0a';
-        e.currentTarget.style.color = isPrimary ? '#fcd34d' : '#7c5a30';
-        e.currentTarget.style.boxShadow = 'none';
-      }}
       style={{
         fontFamily: FONT, fontSize: 9,
         width: '100%', padding: '14px 18px',

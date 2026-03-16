@@ -225,8 +225,6 @@ export default function Game() {
                       width: '100%', padding: '14px 16px', background: 'none',
                       border: 'none', color: '#fff', cursor: 'pointer', textAlign: 'left', display: 'block',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#2a2a3a')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
                     <div style={{ fontWeight: 600, marginBottom: 2 }}>🔄 一時退出</div>
                     <div style={{ fontSize: 12, color: '#888' }}>セッション保持（後でルームに戻れる）</div>
@@ -238,8 +236,6 @@ export default function Game() {
                       width: '100%', padding: '14px 16px', background: 'none',
                       border: 'none', color: '#f87171', cursor: 'pointer', textAlign: 'left', display: 'block',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#2a2a3a')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
                     <div style={{ fontWeight: 600, marginBottom: 2 }}>🚪 退出</div>
                     <div style={{ fontSize: 12, color: '#888' }}>セッションをリセット</div>
