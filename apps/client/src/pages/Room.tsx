@@ -16,7 +16,6 @@ const AI_INFO: Record<GameProvider, { label: string; emoji: string; color: strin
   manual:  { label: 'Manual', emoji: '⚙️', color: '#c8a06a' },
 };
 
-const CUSTOM_GPT_URL = 'https://chatgpt.com/g/g-69a407cbcc8c819184071fc910df88ee-game-platform-creator';
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -151,7 +150,7 @@ export default function Room() {
 
   function copyCode() { navigator.clipboard.writeText(room!.code); }
   function copyInviteLink() {
-    navigator.clipboard.writeText(`${window.location.origin}/?room=${room!.code}`);
+    navigator.clipboard.writeText(room!.code);
     setCopiedInvite(true);
     setTimeout(() => setCopiedInvite(false), 2000);
   }
@@ -163,42 +162,43 @@ export default function Room() {
     }
   }
 
-  function buildSoloPromptBase(desc: string) {
-    return [
-      `【ゲーム内容】`, desc, ``,
-      `【技術条件】`,
-      `- 自己完結したHTMLファイル1つで書く（外部ライブラリ不可、CSSはstyleタグに記述）`,
-      `- JavaScriptはscriptタグにインラインで記述`,
-      `- platform.js は使わない`,
-      `- キーボード・マウス・タップ操作に対応した1人用ゲーム`,
-      `- スコア表示・クリア条件・ゲームオーバーなど1人用として完結した設計`,
-      `- モバイル対応のレスポンシブデザイン`,
-      `- CSSアニメーション、グラデーション、カラフルなデザイン`,
-    ];
-  }
-
-  function buildMultiPromptBase(desc: string) {
-    return [
-      `【ゲーム内容】`, desc, ``,
-      `【技術条件】`,
-      `- 自己完結したHTMLファイル1つで書く（外部ライブラリ不可、CSSはstyleタグに記述）`,
-      `- <head>内に <script src="/platform.js"></script> を必ず含める`,
-      `- 全員が同時にプレイできるマルチプレイヤーゲーム（1人用は禁止）`,
-      `- 対戦または協力形式で設計`,
-      `- platform.broadcast / platform.onState / platform.onAction でゲームロジックを実装`,
-      `- モバイル対応のレスポンシブデザイン`,
-      `- CSSアニメーション、グラデーション、カラフルなデザイン`,
-    ];
-  }
+  // スマホWebView共通の必須技術条件
+  const MOBILE_WEBVIEW_BASE = [
+    `【絶対に守る技術条件】`,
+    `- HTMLファイル1つで完全自己完結（外部CDN・外部フォント・外部画像は一切使わない）`,
+    `- <head>に必ず含める: <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">`,
+    `- CSS・JSはすべてインライン（styleタグ・scriptタグ内に書く）`,
+    `- document.writeは使わない`,
+    `- 画面サイズは 100vw × 100vh で埋める（スクロール不要な1画面設計）`,
+    `- タッチ操作必須: touchstart/touchmove/touchendイベントを実装（clickは補助で可）`,
+    `- ボタン・操作UIは最低 48px × 48px 以上のタップ領域を確保`,
+    `- body margin/paddingは0、overflow:hidden`,
+  ];
 
   function copyGamePrompt() {
     const desc = gameDesc.trim() || '（ここにゲーム内容を入力してください）';
     const isSolo = room!.gameType === 'solo';
-    const base = isSolo ? buildSoloPromptBase(desc) : buildMultiPromptBase(desc);
+    const gameSpecific = isSolo
+      ? [
+          `【ゲーム内容】`, desc, ``,
+          `【ゲーム仕様】`,
+          `- 1人用スタンドアロンゲーム（platform.jsは使わない）`,
+          `- スコア表示・難易度上昇・ゲームオーバー・クリアを実装`,
+          `- Canvasを使う場合はwidth/heightをwindow.innerWidth/innerHeightに合わせる`,
+        ]
+      : [
+          `【ゲーム内容】`, desc, ``,
+          `【ゲーム仕様】`,
+          `- マルチプレイヤーゲーム（1人用は禁止）`,
+          `- <head>内に <script src="/platform.js"></script> を含める`,
+          `- platform.broadcast/onState/onActionでゲームロジックを実装`,
+          `- 全員が同時にプレイできる対戦または協力形式`,
+        ];
     const lines = [
-      `以下の条件でブラウザゲームを作ってください。`, ``,
-      ...base, ``,
-      `HTMLのコードブロック（\`\`\`html....\`\`\`）だけを出力してください。説明文は不要です。`,
+      `スマートフォン専用ブラウザゲームを作ってください。`, ``,
+      ...gameSpecific, ``,
+      ...MOBILE_WEBVIEW_BASE, ``,
+      `HTMLコードブロック（\`\`\`html....\`\`\`）のみ出力。説明文は不要。`,
     ];
     navigator.clipboard.writeText(lines.join('\n'));
     setCopiedPrompt('chatgpt');
@@ -208,28 +208,40 @@ export default function Room() {
   function copyClaudePrompt() {
     const desc = gameDesc.trim() || '（ここにゲーム内容を入力してください）';
     const isSolo = room!.gameType === 'solo';
-    const base = isSolo ? buildSoloPromptBase(desc) : buildMultiPromptBase(desc);
-    const qualityLines = isSolo
+    const gameSpecific = isSolo
       ? [
-          `【品質要件（必ず守ること）】`,
-          `- ゲームとして完成度が高く、最低3分は遊べる作り込みにする`,
-          `- パーティクル・SE代わりのビジュアルフィードバック・演出を豊富に入れる`,
-          `- 難易度を段階的に上げるなどゲームとしての深みを持たせる`,
-          `- UIはゲームらしいデザイン（ドット風・ネオン・RPG風など）にする`,
+          `【ゲーム内容】`, desc, ``,
+          `【ゲーム仕様】`,
+          `- 1人用スタンドアロンゲーム（platform.jsは使わない）`,
+          `- スコア・ハイスコア・難易度上昇（時間経過で加速）・ゲームオーバー・リトライを実装`,
+          `- Canvasを使う場合はwidth=window.innerWidth、height=window.innerHeightで初期化、resizeイベントにも対応`,
+          `- パーティクルエフェクト・スコア加算アニメーション・演出を豊富に入れる`,
+          `- 最低3分遊べる作り込みと、繰り返し遊びたくなるゲーム性`,
         ]
       : [
-          `【品質要件（必ず守ること）】`,
-          `- マルチプレイとして盛り上がるゲームバランスにする`,
-          `- アニメーションや演出を豊富に入れて見栄えを良くする`,
-          `- ゲーム開始前のロビー表示・終了後のスコア表示など流れを作る`,
-          `- UIはゲームらしいデザイン（ドット風・ネオン・RPG風など）にする`,
-          `- バグが出にくい堅牢な実装にする（プレイヤー数が変わっても壊れない）`,
+          `【ゲーム内容】`, desc, ``,
+          `【ゲーム仕様】`,
+          `- マルチプレイヤーゲーム（1人用は禁止）`,
+          `- <head>内に <script src="/platform.js"></script> を含める`,
+          `- platform.broadcast/onState/onActionでゲームロジックを実装`,
+          `- 全員が同時にプレイできる対戦または協力形式`,
+          `- ゲーム開始前のロビー（参加者確認）・プレイ中・結果発表の3フェーズを実装`,
+          `- アニメーション・演出を豊富に入れて盛り上がる体験にする`,
+          `- プレイヤー数が2〜8人に変わっても壊れない堅牢な実装`,
         ];
+    const qualityLines = [
+      `【デザイン・品質要件】`,
+      `- ゲームジャンルに合ったテーマのUIデザイン（ネオン・ドット絵・RPG・近未来など）`,
+      `- 背景・キャラ・エフェクトはCSSアニメーションかCanvas描画で豪華にする`,
+      `- 効果音の代わりにビジュアルフィードバック（フラッシュ・振動演出・色変化）を入れる`,
+      `- ゲームとして完成度が高く、初めて遊ぶ人でも直感的に操作できる`,
+    ];
     const lines = [
-      `以下の条件でブラウザゲームを作ってください。`, ``,
-      ...base, ``,
+      `スマートフォン専用ブラウザゲームを作ってください。`, ``,
+      ...gameSpecific, ``,
+      ...MOBILE_WEBVIEW_BASE, ``,
       ...qualityLines, ``,
-      `HTMLのコードブロック（\`\`\`html....\`\`\`）だけを出力してください。前後の説明文は一切不要です。`,
+      `HTMLコードブロック（\`\`\`html....\`\`\`）のみ出力。前後の説明文は一切不要。`,
     ];
     navigator.clipboard.writeText(lines.join('\n'));
     setCopiedPrompt('claude');
@@ -391,8 +403,6 @@ export default function Room() {
                       color: '#f0d090',
                       transition: 'background 0.1s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(196,122,42,0.15)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     <div style={{ fontWeight: 700, fontSize: 13 }}>🔄 一時退出</div>
                     <div style={{ fontSize: 11, color: '#7c5a30', marginTop: 3 }}>セッション保持（後で戻れる）</div>
@@ -406,8 +416,6 @@ export default function Room() {
                       color: '#f87171',
                       transition: 'background 0.1s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(200,50,30,0.15)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     <div style={{ fontWeight: 700, fontSize: 13 }}>🚪 退出</div>
                     <div style={{ fontSize: 11, color: '#7c5a30', marginTop: 3 }}>セッションをリセット</div>
@@ -590,7 +598,7 @@ export default function Room() {
                 ③ AIに貼り付け → ④ 出力HTMLを下のエリアに貼ってDEPLOY
               </div>
               {/* Claude ボタン（高品質） */}
-              <button onClick={() => { copyClaudePrompt(); openAiPlatform('https://claude.ai/new'); }} style={{
+              <button onClick={() => { copyClaudePrompt(); openAiPlatform('https://claude.ai/projects'); }} style={{
                 width: '100%', padding: '11px 12px', marginBottom: 8,
                 border: '1px solid rgba(212,160,90,0.5)',
                 background: copiedPrompt === 'claude' ? 'rgba(212,160,90,0.2)' : 'rgba(212,160,90,0.08)',
@@ -599,8 +607,6 @@ export default function Room() {
                 display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
                 transition: 'background 0.15s',
               }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(212,160,90,0.18)')}
-                onMouseLeave={e => (e.currentTarget.style.background = copiedPrompt === 'claude' ? 'rgba(212,160,90,0.2)' : 'rgba(212,160,90,0.08)')}
               >
                 {copiedPrompt === 'claude' ? '✅ コピー済み！Claudeを開きます' : '🟠 Claudeで作る（高品質）'}
               </button>
@@ -614,8 +620,6 @@ export default function Room() {
                 display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
                 transition: 'background 0.15s',
               }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(16,163,127,0.18)')}
-                onMouseLeave={e => (e.currentTarget.style.background = copiedPrompt === 'chatgpt' ? 'rgba(16,163,127,0.2)' : 'rgba(16,163,127,0.08)')}
               >
                 {copiedPrompt === 'chatgpt' ? '✅ コピー済み！ChatGPTを開きます' : '🟢 ChatGPTで作る'}
               </button>

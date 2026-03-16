@@ -1,5 +1,4 @@
 import { createServer } from 'http';
-import fs from 'fs';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyCors from '@fastify/cors';
@@ -72,25 +71,13 @@ await app.register(async (fastify) => {
   registerGameServeRoute(fastify, rooms);
 });
 
-// 本番環境: ビルド済みクライアントと public/ を静的配信
+// public/ を配信（platform.js など、アプリのゲームiframeに必要）
 if (!isDev) {
-  const clientDist = path.join(__dirname, '../../../apps/client/dist');
   const publicDir = path.join(__dirname, '../../../public');
 
   await app.register(fastifyStatic, {
-    root: [publicDir, clientDist],
+    root: publicDir,
     prefix: '/',
-  });
-
-  app.setNotFoundHandler((req, reply) => {
-    const url = req.url.split('?')[0];
-    if (url.startsWith('/api') || url.startsWith('/game') || url.startsWith('/platform')) {
-      reply.status(404).send('Not found');
-    } else {
-      // SPAフォールバック: ReactアプリのHTMLを直接返す
-      const indexPath = path.join(clientDist, 'index.html');
-      reply.type('text/html').send(fs.readFileSync(indexPath, 'utf8'));
-    }
   });
 }
 

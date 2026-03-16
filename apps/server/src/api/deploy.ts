@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { RoomManager } from '../room-manager.js';
 import type { Server as SocketServer } from 'socket.io';
 import { toSnapshot } from '../room-manager.js';
-import { getRoomByApiKeyFromDb } from '../db.js';
+import { getRoomByApiKeyFromDb, saveGameHtmlToDb } from '../db.js';
 
 interface DeployBody {
   roomCode: string;
@@ -62,6 +62,9 @@ export function registerDeployRoute(
       deployedBy: deployedBy?.trim() || 'AI',
       provider: 'manual',
     });
+
+    // ゲームHTMLをDBに保存（サーバー再起動後も再生できるように）
+    await saveGameHtmlToDb(game.id, room.code, code);
 
     // 全員にデプロイ通知
     io.to(room.code).emit('game:deployed', {

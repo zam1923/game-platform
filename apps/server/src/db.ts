@@ -37,6 +37,19 @@ export async function deleteRoomFromDb(code: string): Promise<void> {
   if (error) console.error('deleteRoomFromDb error:', error.message);
 }
 
+export async function saveGameHtmlToDb(gameId: string, roomCode: string, html: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from('deployed_games')
+    .upsert({ id: gameId, room_code: roomCode, html }, { onConflict: 'id' });
+  if (error) console.error('saveGameHtmlToDb error:', error.message);
+}
+
+export async function getGameHtmlFromDb(gameId: string): Promise<string | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.from('deployed_games').select('html').eq('id', gameId).maybeSingle();
+  return (data as { html?: string } | null)?.html ?? null;
+}
+
 export async function getRoomByApiKeyFromDb(apiKey: string): Promise<PersistedRoom | null> {
   if (!supabase) return null;
   const { data } = await supabase

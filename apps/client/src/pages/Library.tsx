@@ -183,7 +183,7 @@ export default function Library() {
 
   async function deleteGame(id: string) {
     if (!supabase) return;
-    if (!window.confirm('このゲームを削除しますか？')) return;
+    if (!confirm('このゲームを削除しますか？')) return;
     const { error } = await supabase.from('games').delete().eq('id', id);
     if (!error) setGames(prev => prev.filter(g => g.id !== id));
   }
@@ -243,8 +243,6 @@ export default function Library() {
                 cursor: 'pointer',
                 transition: 'border-color 0.1s, color 0.1s',
               }}
-              onMouseOver={e => { e.currentTarget.style.borderColor = '#c07820'; e.currentTarget.style.color = '#f0a030'; }}
-              onMouseOut={e => { e.currentTarget.style.borderColor = '#2a1a08'; e.currentTarget.style.color = '#5a3818'; }}
             >
               ← BACK
             </button>
