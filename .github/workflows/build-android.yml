@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -25,6 +27,31 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+
+      - name: Setup debug keystore (generate once and commit)
+        run: |
+          mkdir -p ~/.android
+          if [ -f android/debug.keystore ]; then
+            echo "Using committed keystore"
+            cp android/debug.keystore ~/.android/debug.keystore
+          else
+            echo "Generating new keystore"
+            keytool -genkeypair -v \
+              -keystore ~/.android/debug.keystore \
+              -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 \
+              -validity 10000 \
+              -storepass android \
+              -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US"
+            mkdir -p android
+            cp ~/.android/debug.keystore android/debug.keystore
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add android/debug.keystore
+            git commit -m "ci: debug keystoreを追加（APK署名を固定）"
+            git push
+          fi
 
       - name: Install dependencies
         working-directory: apps/client
