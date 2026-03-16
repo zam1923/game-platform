@@ -231,6 +231,24 @@ export class RoomManager {
     return room.games.find(g => g.id === gameId) ?? null;
   }
 
+  deleteGame(room: Room, gameId: string): boolean {
+    const idx = room.games.findIndex(g => g.id === gameId);
+    if (idx === -1) return false;
+    room.games.splice(idx, 1);
+    if (room.activeGameId === gameId) {
+      room.activeGameId = null;
+      room.phase = 'waiting';
+    }
+    return true;
+  }
+
+  renameGame(room: Room, gameId: string, newName: string): boolean {
+    const game = room.games.find(g => g.id === gameId);
+    if (!game) return false;
+    game.name = newName.trim().slice(0, 100) || game.name;
+    return true;
+  }
+
   setMode(room: Room, mode: CreationMode): void {
     room.creationMode = mode;
   }

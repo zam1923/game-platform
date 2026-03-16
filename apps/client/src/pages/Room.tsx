@@ -138,6 +138,9 @@ export default function Room() {
   const [saveMsg, setSaveMsg] = useState('');
   const [ratingMap, setRatingMap] = useState<Record<string, number>>({});
   const [ratingLoading, setRatingLoading] = useState<string | null>(null);
+  const [renamingGameId, setRenamingGameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const isHost = me?.isHost ?? false;
 
@@ -325,6 +328,23 @@ export default function Room() {
   function sendChallenge() { if (challengeInput.trim()) { socket.emit('room:challenge', challengeInput.trim()); setChallengeInput(''); } }
   function setMode(mode: CreationMode) { socket.emit('room:setMode', mode); }
   function pickRandomTopic() { socket.emit('room:randomChallenge'); }
+
+  function startRename(game: DeployedGameMeta) {
+    setRenamingGameId(game.id);
+    setRenameValue(game.name);
+    setDeleteConfirmId(null);
+  }
+
+  function submitRename(gameId: string) {
+    const name = renameValue.trim();
+    if (name) socket.emit('game:rename', { gameId, name });
+    setRenamingGameId(null);
+  }
+
+  function deleteGame(gameId: string) {
+    socket.emit('game:delete', { gameId });
+    setDeleteConfirmId(null);
+  }
 
   async function saveToLibrary(game: DeployedGameMeta) {
     if (!supabase || !user) return;
@@ -652,34 +672,17 @@ export default function Room() {
               </div>
             </InnerSection>
 
-            {/* HTMLデプロイ */}
-            {room.gameType === 'solo' ? (
-              <InnerSection>
-                <FieldLabel>🔧 生成されたHTMLを貼り付けてデプロイ</FieldLabel>
-                <textarea style={{ ...inputStyle, height: 100, fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
-                  value={htmlCode} onChange={e => setHtmlCode(e.target.value)}
-                  placeholder={'<!DOCTYPE html>\n<html>...\n</html>'} />
-                <button onClick={deployHtml} disabled={deploying} className="room-btn-gold" style={{ width: '100%', marginTop: 8, padding: '10px 0', fontFamily: FONT, fontSize: 8 }}>
-                  {deploying ? 'DEPLOYING...' : '🚀 DEPLOY!'}
-                </button>
-                {deployMsg && <div style={{ fontSize: 12, marginTop: 8, color: deployMsg.startsWith('✅') ? '#34d399' : '#f87171' }}>{deployMsg}</div>}
-              </InnerSection>
-            ) : (
-              <details>
-                <summary style={{ fontSize: 12, color: '#7c5a30', cursor: 'pointer', padding: '6px 0', fontWeight: 600 }}>
-                  🔧 AIが生成したHTMLを直接デプロイ
-                </summary>
-                <InnerSection style={{ marginTop: 8 }}>
-                  <textarea style={{ ...inputStyle, height: 80, fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
-                    value={htmlCode} onChange={e => setHtmlCode(e.target.value)}
-                    placeholder={'<!DOCTYPE html>\n<html>...\n</html>'} />
-                  <button onClick={deployHtml} disabled={deploying} className="room-btn-gold" style={{ width: '100%', marginTop: 8, fontFamily: FONT, fontSize: 8 }}>
-                    {deploying ? 'DEPLOYING...' : '🚀 DEPLOY!'}
-                  </button>
-                  {deployMsg && <div style={{ fontSize: 12, marginTop: 8, color: deployMsg.startsWith('✅') ? '#34d399' : '#f87171' }}>{deployMsg}</div>}
-                </InnerSection>
-              </details>
-            )}
+            {/* HTMLデプロイ（manual） */}
+            <InnerSection>
+              <FieldLabel>🔧 HTMLを貼り付けてデプロイ</FieldLabel>
+              <textarea style={{ ...inputStyle, height: 90, fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
+                value={htmlCode} onChange={e => setHtmlCode(e.target.value)}
+                placeholder={'<!DOCTYPE html>\n<html>...\n</html>'} />
+              <button onClick={deployHtml} disabled={deploying} className="room-btn-gold" style={{ width: '100%', marginTop: 8, padding: '10px 0', fontFamily: FONT, fontSize: 8 }}>
+                {deploying ? 'DEPLOYING...' : '🚀 DEPLOY!'}
+              </button>
+              {deployMsg && <div style={{ fontSize: 12, marginTop: 8, color: deployMsg.startsWith('✅') ? '#34d399' : '#f87171' }}>{deployMsg}</div>}
+            </InnerSection>
           </div>
 
           {/* ─── 右: ゲーム一覧 ─── */}
@@ -696,22 +699,56 @@ export default function Room() {
                 {[...room.games].reverse().map(game => {
                   const pInfo = AI_INFO[game.provider] ?? AI_INFO.manual;
                   const isSaving = savingGameId === game.id;
+                  const isRenaming = renamingGameId === game.id;
+                  const isDeleteConfirm = deleteConfirmId === game.id;
+                  const canEdit = isHost || room.gameType === 'solo';
                   return (
                     <div key={game.id} className="game-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                        <div style={{ fontWeight: 700, color: '#f0d090', fontSize: 14 }}>{game.name}</div>
-                        <span style={{
-                          fontSize: 10, padding: '3px 8px',
-                          background: `${pInfo.color}15`, border: `1px solid ${pInfo.color}40`,
-                          color: pInfo.color, whiteSpace: 'nowrap',
-                        }}>
-                          {pInfo.emoji} {pInfo.label}
-                        </span>
+                      {/* タイトル行 */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4, gap: 8 }}>
+                        {isRenaming ? (
+                          <input
+                            autoFocus
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') submitRename(game.id);
+                              if (e.key === 'Escape') setRenamingGameId(null);
+                            }}
+                            onBlur={() => submitRename(game.id)}
+                            style={{
+                              ...inputStyle, flex: 1, padding: '4px 8px', fontSize: 13,
+                              fontWeight: 700, color: '#f0d090',
+                            }}
+                          />
+                        ) : (
+                          <div style={{ fontWeight: 700, color: '#f0d090', fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {game.name}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                          <span style={{
+                            fontSize: 10, padding: '3px 8px',
+                            background: `${pInfo.color}15`, border: `1px solid ${pInfo.color}40`,
+                            color: pInfo.color, whiteSpace: 'nowrap',
+                          }}>
+                            {pInfo.emoji} {pInfo.label}
+                          </span>
+                          {canEdit && !isRenaming && (
+                            <button
+                              onClick={() => startRename(game)}
+                              title="名前を変更"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: '2px 4px', color: '#5a3a18', lineHeight: 1 }}
+                            >✏️</button>
+                          )}
+                        </div>
                       </div>
+
                       <div style={{ fontSize: 11, color: '#5a3a18', marginBottom: 10 }}>
                         by {game.deployedBy} · {new Date(game.deployedAt).toLocaleTimeString('ja-JP')}
                       </div>
 
+                      {/* アクションボタン行 */}
                       <div style={{ display: 'flex', gap: 8 }}>
                         {(isHost || room.gameType === 'solo') && (
                           <button onClick={() => selectGame(game.id)} className="room-btn-gold play-btn" style={{ flex: 1, fontFamily: FONT }}>
@@ -723,6 +760,28 @@ export default function Room() {
                             className="room-btn-ghost" style={{ padding: '8px 12px', fontSize: 13, opacity: isSaving ? 0.5 : 1 }}>
                             {isSaving ? '...' : '💾'}
                           </button>
+                        )}
+                        {/* 削除ボタン */}
+                        {canEdit && (
+                          isDeleteConfirm ? (
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              <button
+                                onClick={() => deleteGame(game.id)}
+                                style={{ padding: '6px 10px', background: 'rgba(248,113,113,0.15)', border: '1px solid #f87171', color: '#f87171', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
+                              >削除確認</button>
+                              <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                style={{ padding: '6px 8px', background: 'none', border: '1px solid #3d1f0a', color: '#5a3a18', cursor: 'pointer', fontSize: 11 }}
+                              >✕</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { setDeleteConfirmId(game.id); setRenamingGameId(null); }}
+                              title="削除"
+                              className="room-btn-ghost"
+                              style={{ padding: '8px 10px', fontSize: 13 }}
+                            >🗑</button>
+                          )
                         )}
                       </div>
 
