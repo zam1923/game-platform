@@ -197,6 +197,34 @@ function startMelody() {
 }
 
 // ─── 公開API ──────────────────────────────────────────
+
+/** タブが非表示になったときにBGMを一時停止するリスナーを登録（一度だけ呼ぶ） */
+export function setupVisibilityPause() {
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx) return;
+    if (document.hidden) {
+      ctx.suspend();
+    } else if (isPlaying) {
+      ctx.resume();
+    }
+  });
+}
+
+/** BGMをフェードアウトして停止（ゲーム開始時などに使用） */
+export function pauseBgmForGame() {
+  if (!isPlaying || !masterGain || !ctx) return;
+  const now = ctx.currentTime;
+  masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+  masterGain.gain.linearRampToValueAtTime(0, now + 0.5);
+  setTimeout(() => stopBgm(), 520);
+}
+
+/** BGMを設定に従い再開（ゲーム終了時などに使用） */
+export function resumeBgmFromSettings() {
+  const s = loadSettings();
+  if (s.bgmOn && !isPlaying) startBgm(s.bgmVol, s.bgmTrack);
+}
+
 export function startBgm(vol = 0.3, track = 0) {
   if (isPlaying) return;
   currentTrack = track;
