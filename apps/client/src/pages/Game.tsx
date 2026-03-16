@@ -3,7 +3,7 @@ import { socket } from '../socket';
 import { useStore } from '../store';
 import { clearSession } from '../utils/session';
 
-const SERVER = window.location.origin;
+const SERVER = import.meta.env.VITE_SERVER_URL || window.location.origin;
 
 export default function Game() {
   const room = useStore((s) => s.room);
