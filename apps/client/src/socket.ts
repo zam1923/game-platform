@@ -16,13 +16,12 @@ socket.on('connect', () => {
   useStore.getState().setDisconnected(false);
 
   const session = loadSession();
-  // セッションなし or すでにルームにいる → スキップ
-  if (!session || useStore.getState().room) {
+  if (!session) {
     useStore.getState().setReconnecting(false);
     return;
   }
 
-  // セッションがある && ルームにいない → 自動再参加を試みる
+  // セッションがある → 必ず再参加してサーバーのルーム状態を同期（サーバー再起動対策）
   useStore.getState().setReconnecting(true);
   socket.emit(
     'room:join',
@@ -30,7 +29,7 @@ socket.on('connect', () => {
     (res: { ok: boolean; room?: RoomSnapshot; error?: string }) => {
       useStore.getState().setReconnecting(false);
       if (res.ok && res.room) {
-        // 成功: me を新しい socket.id で更新
+        // 成功: me と room を最新状態に更新（apiKeyも最新になる）
         const isHost = res.room.players.find(p => p.name === session.name)?.isHost ?? false;
         useStore.getState().setMe({
           id: socket.id!,
@@ -39,7 +38,6 @@ socket.on('connect', () => {
           joinedAt: Date.now(),
         });
         useStore.getState().setRoom(res.room);
-        // セッションのgameTypeを更新（復帰したルームのgameTypeに合わせる）
         useStore.getState().setPendingGameType(res.room.gameType);
       } else {
         // ルームが消えていた（サーバー再起動など）→ ホームへ
