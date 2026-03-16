@@ -4,6 +4,7 @@ import { useStore, type CreationMode, type GameProvider, type DeployedGameMeta }
 import { clearSession } from '../utils/session';
 import { useAuthStore } from '../authStore';
 import { supabase, isSupabaseEnabled } from '../supabase';
+import { Browser } from '@capacitor/browser';
 
 const FONT = "'Press Start 2P', monospace";
 const SERVER = import.meta.env.VITE_SERVER_URL || window.location.origin;
@@ -154,7 +155,13 @@ export default function Room() {
     setCopiedInvite(true);
     setTimeout(() => setCopiedInvite(false), 2000);
   }
-  function openAiPlatform(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
+  async function openAiPlatform(url: string) {
+    try {
+      await Browser.open({ url });
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
 
   function buildSoloPromptBase(desc: string) {
     return [
