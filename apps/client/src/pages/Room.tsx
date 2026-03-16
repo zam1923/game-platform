@@ -160,15 +160,28 @@ export default function Room() {
     const desc = gameDesc.trim() || '（ここにゲーム内容を入力してください）';
     const isSolo = room!.gameType === 'solo';
     const lines = isSolo
-      ? [`【依頼】1人用ブラウザゲームを作成してください。`, ``, `ゲーム内容: ${desc}`, ``,
-         `■ 技術条件`, `- HTML1ファイルで自己完結（外部CDN使用はOK）`, `- platform.js は絶対に使わない（不要）`,
-         `- キーボード・マウス・タップ操作に対応`, `- スコア・クリア条件など1人用として完結した設計`, ``,
-         `■ デプロイ情報`, `URL: ${SERVER}/api/deploy`, `ルームコード: ${room!.code}`, `APIキー: ${room!.apiKey}`]
-      : [`【依頼】マルチプレイゲームを作成してください。`, ``, `ゲーム内容: ${desc}`, ``,
-         `■ 技術条件（必須）`, `- <script src="/platform.js"></script> をheadに含める`,
-         `- 全員が同時にプレイできる構造（1人用は禁止）`, `- 対戦 or 協力のどちらかで設計`,
-         `- platform.broadcast / platform.onAction でゲームロジックを実装`, ``,
-         `■ デプロイ情報`, `URL: ${SERVER}/api/deploy`, `ルームコード: ${room!.code}`, `APIキー: ${room!.apiKey}`];
+      ? [`以下の条件でブラウザゲームを作ってください。`, ``,
+         `【ゲーム内容】`, desc, ``,
+         `【技術条件】`,
+         `- 自己完結したHTMLファイル1つで書く（外部ライブラリ不可、CSSはstyleタグに記述）`,
+         `- JavaScriptはscriptタグにインラインで記述`,
+         `- platform.js は使わない`,
+         `- キーボード・マウス・タップ操作に対応した1人用ゲーム`,
+         `- スコア表示・クリア条件・ゲームオーバーなど1人用として完結した設計`,
+         `- モバイル対応のレスポンシブデザイン`,
+         `- CSSアニメーション、グラデーション、カラフルなデザイン`, ``,
+         `HTMLのコードブロック（\`\`\`html....\`\`\`）だけを出力してください。説明文は不要です。`]
+      : [`以下の条件でブラウザゲームを作ってください。`, ``,
+         `【ゲーム内容】`, desc, ``,
+         `【技術条件】`,
+         `- 自己完結したHTMLファイル1つで書く（外部ライブラリ不可、CSSはstyleタグに記述）`,
+         `- <head>内に <script src="/platform.js"></script> を必ず含める`,
+         `- 全員が同時にプレイできるマルチプレイヤーゲーム（1人用は禁止）`,
+         `- 対戦または協力形式で設計`,
+         `- platform.broadcast / platform.onState / platform.onAction でゲームロジックを実装`,
+         `- モバイル対応のレスポンシブデザイン`,
+         `- CSSアニメーション、グラデーション、カラフルなデザイン`, ``,
+         `HTMLのコードブロック（\`\`\`html....\`\`\`）だけを出力してください。説明文は不要です。`];
     navigator.clipboard.writeText(lines.join('\n'));
     setCopiedPrompt(true);
     setTimeout(() => setCopiedPrompt(false), 2000);
@@ -523,8 +536,9 @@ export default function Room() {
             {/* 自分のAIで作る */}
             <InnerSection style={{ marginBottom: 14 }}>
               <FieldLabel>🆓 自分のAIで作る（無料）</FieldLabel>
-              <div style={{ fontSize: 11, color: '#5a3a18', marginBottom: 8 }}>
-                ① 作成指示をコピー → ② ChatGPT / Claude に貼り付け
+              <div style={{ fontSize: 11, color: '#5a3a18', marginBottom: 8, lineHeight: 1.8 }}>
+                ① ゲーム内容を入力 → ② 作成指示をコピー<br />
+                ③ ChatGPT / Claude に貼り付け → ④ 出力されたHTMLを下のエリアに貼り付けてDEPLOY
               </div>
               <button onClick={copyGamePrompt} className="room-btn-ghost" style={{
                 width: '100%', fontSize: 12, padding: '10px 12px',
