@@ -6,7 +6,7 @@ import { useAuthStore } from '../authStore';
 import { supabase, isSupabaseEnabled } from '../supabase';
 
 const FONT = "'Press Start 2P', monospace";
-const SERVER = window.location.origin;
+const SERVER = import.meta.env.VITE_SERVER_URL || window.location.origin;
 
 const AI_INFO: Record<GameProvider, { label: string; emoji: string; color: string }> = {
   claude:  { label: 'Claude',  emoji: '🟣', color: '#a78bfa' },
