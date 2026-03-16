@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { RoomManager } from '../room-manager.js';
 import type { Server as SocketServer } from 'socket.io';
 import { toSnapshot } from '../room-manager.js';
+import { getRoomByApiKeyFromDb } from '../db.js';
 
 interface DeployBody {
   roomCode: string;
@@ -33,7 +34,20 @@ export function registerDeployRoute(
   }, async (request, reply) => {
     const { roomCode, apiKey, name, code, deployedBy } = request.body;
 
-    const room = rooms.getRoomByApiKey(apiKey);
+    let room = rooms.getRoomByApiKey(apiKey);
+    if (!room) {
+      // メモリにない場合はDBから復元を試みる（サーバー再起動後対策）
+      const persisted = await getRoomByApiKeyFromDb(apiKey);
+      if (persisted) {
+        room = rooms.restoreRoom({
+          code: persisted.code,
+          apiKey: persisted.api_key,
+          gameType: persisted.type,
+          ownerId: persisted.owner_id ?? undefined,
+          name: persisted.name ?? undefined,
+        });
+      }
+    }
     if (!room) {
       return reply.status(401).send({ ok: false, error: 'APIキーが無効です' });
     }
