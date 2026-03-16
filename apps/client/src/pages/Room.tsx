@@ -132,7 +132,7 @@ export default function Room() {
   const [deployMsg, setDeployMsg] = useState('');
   const [challengeInput, setChallengeInput] = useState('');
   const [copiedInvite, setCopiedInvite] = useState(false);
-  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState<'chatgpt' | 'claude' | null>(null);
   const [showLeaveMenu, setShowLeaveMenu] = useState(false);
   const [savingGameId, setSavingGameId] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState('');
@@ -156,35 +156,77 @@ export default function Room() {
   }
   function openAiPlatform(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
 
+  function buildSoloPromptBase(desc: string) {
+    return [
+      `【ゲーム内容】`, desc, ``,
+      `【技術条件】`,
+      `- 自己完結したHTMLファイル1つで書く（外部ライブラリ不可、CSSはstyleタグに記述）`,
+      `- JavaScriptはscriptタグにインラインで記述`,
+      `- platform.js は使わない`,
+      `- キーボード・マウス・タップ操作に対応した1人用ゲーム`,
+      `- スコア表示・クリア条件・ゲームオーバーなど1人用として完結した設計`,
+      `- モバイル対応のレスポンシブデザイン`,
+      `- CSSアニメーション、グラデーション、カラフルなデザイン`,
+    ];
+  }
+
+  function buildMultiPromptBase(desc: string) {
+    return [
+      `【ゲーム内容】`, desc, ``,
+      `【技術条件】`,
+      `- 自己完結したHTMLファイル1つで書く（外部ライブラリ不可、CSSはstyleタグに記述）`,
+      `- <head>内に <script src="/platform.js"></script> を必ず含める`,
+      `- 全員が同時にプレイできるマルチプレイヤーゲーム（1人用は禁止）`,
+      `- 対戦または協力形式で設計`,
+      `- platform.broadcast / platform.onState / platform.onAction でゲームロジックを実装`,
+      `- モバイル対応のレスポンシブデザイン`,
+      `- CSSアニメーション、グラデーション、カラフルなデザイン`,
+    ];
+  }
+
   function copyGamePrompt() {
     const desc = gameDesc.trim() || '（ここにゲーム内容を入力してください）';
     const isSolo = room!.gameType === 'solo';
-    const lines = isSolo
-      ? [`以下の条件でブラウザゲームを作ってください。`, ``,
-         `【ゲーム内容】`, desc, ``,
-         `【技術条件】`,
-         `- 自己完結したHTMLファイル1つで書く（外部ライブラリ不可、CSSはstyleタグに記述）`,
-         `- JavaScriptはscriptタグにインラインで記述`,
-         `- platform.js は使わない`,
-         `- キーボード・マウス・タップ操作に対応した1人用ゲーム`,
-         `- スコア表示・クリア条件・ゲームオーバーなど1人用として完結した設計`,
-         `- モバイル対応のレスポンシブデザイン`,
-         `- CSSアニメーション、グラデーション、カラフルなデザイン`, ``,
-         `HTMLのコードブロック（\`\`\`html....\`\`\`）だけを出力してください。説明文は不要です。`]
-      : [`以下の条件でブラウザゲームを作ってください。`, ``,
-         `【ゲーム内容】`, desc, ``,
-         `【技術条件】`,
-         `- 自己完結したHTMLファイル1つで書く（外部ライブラリ不可、CSSはstyleタグに記述）`,
-         `- <head>内に <script src="/platform.js"></script> を必ず含める`,
-         `- 全員が同時にプレイできるマルチプレイヤーゲーム（1人用は禁止）`,
-         `- 対戦または協力形式で設計`,
-         `- platform.broadcast / platform.onState / platform.onAction でゲームロジックを実装`,
-         `- モバイル対応のレスポンシブデザイン`,
-         `- CSSアニメーション、グラデーション、カラフルなデザイン`, ``,
-         `HTMLのコードブロック（\`\`\`html....\`\`\`）だけを出力してください。説明文は不要です。`];
+    const base = isSolo ? buildSoloPromptBase(desc) : buildMultiPromptBase(desc);
+    const lines = [
+      `以下の条件でブラウザゲームを作ってください。`, ``,
+      ...base, ``,
+      `HTMLのコードブロック（\`\`\`html....\`\`\`）だけを出力してください。説明文は不要です。`,
+    ];
     navigator.clipboard.writeText(lines.join('\n'));
-    setCopiedPrompt(true);
-    setTimeout(() => setCopiedPrompt(false), 2000);
+    setCopiedPrompt('chatgpt');
+    setTimeout(() => setCopiedPrompt(null), 2000);
+  }
+
+  function copyClaudePrompt() {
+    const desc = gameDesc.trim() || '（ここにゲーム内容を入力してください）';
+    const isSolo = room!.gameType === 'solo';
+    const base = isSolo ? buildSoloPromptBase(desc) : buildMultiPromptBase(desc);
+    const qualityLines = isSolo
+      ? [
+          `【品質要件（必ず守ること）】`,
+          `- ゲームとして完成度が高く、最低3分は遊べる作り込みにする`,
+          `- パーティクル・SE代わりのビジュアルフィードバック・演出を豊富に入れる`,
+          `- 難易度を段階的に上げるなどゲームとしての深みを持たせる`,
+          `- UIはゲームらしいデザイン（ドット風・ネオン・RPG風など）にする`,
+        ]
+      : [
+          `【品質要件（必ず守ること）】`,
+          `- マルチプレイとして盛り上がるゲームバランスにする`,
+          `- アニメーションや演出を豊富に入れて見栄えを良くする`,
+          `- ゲーム開始前のロビー表示・終了後のスコア表示など流れを作る`,
+          `- UIはゲームらしいデザイン（ドット風・ネオン・RPG風など）にする`,
+          `- バグが出にくい堅牢な実装にする（プレイヤー数が変わっても壊れない）`,
+        ];
+    const lines = [
+      `以下の条件でブラウザゲームを作ってください。`, ``,
+      ...base, ``,
+      ...qualityLines, ``,
+      `HTMLのコードブロック（\`\`\`html....\`\`\`）だけを出力してください。前後の説明文は一切不要です。`,
+    ];
+    navigator.clipboard.writeText(lines.join('\n'));
+    setCopiedPrompt('claude');
+    setTimeout(() => setCopiedPrompt(null), 2000);
   }
 
   function tempLeave() {
@@ -535,33 +577,41 @@ export default function Room() {
 
             {/* 自分のAIで作る */}
             <InnerSection style={{ marginBottom: 14 }}>
-              <FieldLabel>🆓 自分のAIで作る（無料）</FieldLabel>
-              <div style={{ fontSize: 11, color: '#5a3a18', marginBottom: 8, lineHeight: 1.8 }}>
-                ① ゲーム内容を入力 → ② 作成指示をコピー<br />
-                ③ ChatGPT / Claude に貼り付け → ④ 出力されたHTMLを下のエリアに貼り付けてDEPLOY
+              <FieldLabel>🆓 自分のAIで作る</FieldLabel>
+              <div style={{ fontSize: 11, color: '#5a3a18', marginBottom: 10, lineHeight: 1.8 }}>
+                ① ゲーム内容を入力 → ② AIを選んでプロンプトをコピー<br />
+                ③ AIに貼り付け → ④ 出力HTMLを下のエリアに貼ってDEPLOY
               </div>
-              <button onClick={copyGamePrompt} className="room-btn-ghost" style={{
-                width: '100%', fontSize: 12, padding: '10px 12px',
-                borderColor: copiedPrompt ? '#34d399' : undefined,
-                color: copiedPrompt ? '#34d399' : undefined,
-              }}>
-                {copiedPrompt ? '✅ コピーしました！' : gameDesc.trim() ? `📋 「${gameDesc.trim()}」の作成指示をコピー` : '📋 作成指示をコピー'}
-              </button>
-              <button onClick={() => openAiPlatform(CUSTOM_GPT_URL)} style={{
-                marginTop: 8, padding: '9px 12px', border: '1px solid rgba(16,163,127,0.4)',
-                background: 'rgba(16,163,127,0.1)', color: '#c8a06a',
-                fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%',
+              {/* Claude ボタン（高品質） */}
+              <button onClick={() => { copyClaudePrompt(); openAiPlatform('https://claude.ai/new'); }} style={{
+                width: '100%', padding: '11px 12px', marginBottom: 8,
+                border: '1px solid rgba(212,160,90,0.5)',
+                background: copiedPrompt === 'claude' ? 'rgba(212,160,90,0.2)' : 'rgba(212,160,90,0.08)',
+                color: copiedPrompt === 'claude' ? '#34d399' : '#d4a05a',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
                 transition: 'background 0.15s',
               }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(16,163,127,0.2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(16,163,127,0.1)')}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(212,160,90,0.18)')}
+                onMouseLeave={e => (e.currentTarget.style.background = copiedPrompt === 'claude' ? 'rgba(212,160,90,0.2)' : 'rgba(212,160,90,0.08)')}
               >
-                💬 Game Platform GPT を開く
+                {copiedPrompt === 'claude' ? '✅ コピー済み！Claudeを開きます' : '🟠 Claudeで作る（高品質）'}
               </button>
-              <div style={{ fontSize: 11, color: '#5a3a18', marginTop: 8, lineHeight: 1.7 }}>
-                Claude・Gemini の場合は、生成されたHTMLを下の「デプロイ」欄に貼ってください
-              </div>
+              {/* ChatGPT ボタン */}
+              <button onClick={() => { copyGamePrompt(); openAiPlatform('https://chatgpt.com/'); }} style={{
+                width: '100%', padding: '11px 12px',
+                border: '1px solid rgba(16,163,127,0.4)',
+                background: copiedPrompt === 'chatgpt' ? 'rgba(16,163,127,0.2)' : 'rgba(16,163,127,0.08)',
+                color: copiedPrompt === 'chatgpt' ? '#34d399' : '#c8a06a',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
+                transition: 'background 0.15s',
+              }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(16,163,127,0.18)')}
+                onMouseLeave={e => (e.currentTarget.style.background = copiedPrompt === 'chatgpt' ? 'rgba(16,163,127,0.2)' : 'rgba(16,163,127,0.08)')}
+              >
+                {copiedPrompt === 'chatgpt' ? '✅ コピー済み！ChatGPTを開きます' : '🟢 ChatGPTで作る'}
+              </button>
             </InnerSection>
 
             {/* プラットフォームのAI（クレジット制・準備中） */}
