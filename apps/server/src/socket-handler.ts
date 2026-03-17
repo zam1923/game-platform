@@ -232,6 +232,36 @@ export function registerSocketHandlers(io: Server, rooms: RoomManager): void {
       io.to(room.code).emit('room:updated', toSnapshot(room));
     });
 
+    // ─── ゲーム削除（ホストのみ）──────────────────────
+    socket.on('game:delete', (
+      payload: { gameId: string },
+      cb?: (res: { ok: boolean; error?: string }) => void,
+    ) => {
+      const room = rooms.getRoomByPlayer(playerId);
+      if (!room) return cb?.({ ok: false, error: 'ルームに参加していません' });
+      const player = room.players.get(playerId);
+      if (!player?.isHost) return cb?.({ ok: false, error: 'ホストのみ操作できます' });
+      const ok = rooms.deleteGame(room, payload.gameId);
+      if (!ok) return cb?.({ ok: false, error: 'ゲームが見つかりません' });
+      cb?.({ ok: true });
+      io.to(room.code).emit('room:updated', toSnapshot(room));
+    });
+
+    // ─── ゲーム名変更（ホストのみ）────────────────────
+    socket.on('game:rename', (
+      payload: { gameId: string; name: string },
+      cb?: (res: { ok: boolean; error?: string }) => void,
+    ) => {
+      const room = rooms.getRoomByPlayer(playerId);
+      if (!room) return cb?.({ ok: false, error: 'ルームに参加していません' });
+      const player = room.players.get(playerId);
+      if (!player?.isHost) return cb?.({ ok: false, error: 'ホストのみ操作できます' });
+      const ok = rooms.renameGame(room, payload.gameId, payload.name);
+      if (!ok) return cb?.({ ok: false, error: 'ゲームが見つかりません' });
+      cb?.({ ok: true });
+      io.to(room.code).emit('room:updated', toSnapshot(room));
+    });
+
     // ─── 退出 ─────────────────────────────────────
     socket.on('room:leave', () => cleanup(socket, playerId, rooms, io));
     socket.on('disconnect', () => cleanup(socket, playerId, rooms, io));

@@ -13,6 +13,7 @@ import Game from './pages/Game';
 import Home from './pages/Home';
 import Library from './pages/Library';
 import { SoundSettings } from './components/SoundSettings';
+import { setupVisibilityPause, pauseBgmForGame, resumeBgmFromSettings } from './utils/bgm';
 
 export default function App() {
   const room = useStore((s) => s.room);
@@ -20,6 +21,17 @@ export default function App() {
   const navPage = useStore((s) => s.navPage);
   const isReconnecting = useStore((s) => s.isReconnecting);
   const { loading } = useAuthStore();
+
+  const isInGame = !!(room && me && room.phase === 'playing' && room.activeGameId);
+
+  // ゲームプレイ中はBGM停止、それ以外では再開
+  useEffect(() => {
+    if (isInGame) {
+      pauseBgmForGame();
+    } else {
+      resumeBgmFromSettings();
+    }
+  }, [isInGame]);
 
   // 初回マウント時: socketを接続してセッション復帰を試みる
   useEffect(() => {
@@ -30,6 +42,9 @@ export default function App() {
       useStore.getState().setNavPage('lobby');
       window.history.replaceState({}, '', window.location.pathname);
     }
+
+    // タブ非表示時のBGM一時停止を設定
+    setupVisibilityPause();
 
     // セッションがある場合、即座に接続してセッション復帰
     if (!socket.connected) {

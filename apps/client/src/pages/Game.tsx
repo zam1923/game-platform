@@ -14,7 +14,8 @@ export default function Game() {
   const isDisconnected = useStore((s) => s.isDisconnected);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const isHost = me?.isHost ?? false;
-  const [showLeaveMenu, setShowLeaveMenu] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
 
   if (!room || !me || !room.activeGameId) return null;
@@ -22,7 +23,6 @@ export default function Game() {
   const activeGame = room.games.find(g => g.id === room.activeGameId);
 
   // iframeにメッセージを送るヘルパー
-  // sandboxed iframe は origin が null になるため "*" を使用
   const sendToIframe = useCallback((msg: object) => {
     iframeRef.current?.contentWindow?.postMessage(
       { _platform: true, ...msg },
@@ -35,7 +35,6 @@ export default function Game() {
     function handler(e: MessageEvent) {
       const data = e.data;
       if (!data?._p) return;
-      // セキュリティ: iframeからのメッセージのみ受け入れる
       if (e.source !== iframeRef.current?.contentWindow) return;
 
       switch (data.type) {
@@ -60,6 +59,7 @@ export default function Game() {
 
   function reloadGame() {
     setIframeKey(k => k + 1);
+    setMenuOpen(false);
   }
 
   // iframeロード完了時: 初期化メッセージを送信
@@ -71,32 +71,24 @@ export default function Game() {
       players: room!.players.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })),
     });
 
-    // 既存のゲーム状態がある場合は送信（途中参加対応）
     const state = useStore.getState().gameState;
     if (state !== null) {
       sendToIframe({ type: 'state', state });
     }
   }
 
-  // サーバーからのゲーム状態をiframeへ転送
   useEffect(() => {
-    if (gameState !== null) {
-      sendToIframe({ type: 'state', state: gameState });
-    }
+    if (gameState !== null) sendToIframe({ type: 'state', state: gameState });
   }, [gameState, sendToIframe]);
 
-  // サーバーからのアクション（ホストのみ受け取る）をiframeへ転送
   useEffect(() => {
     if (lastAction && isHost) {
       sendToIframe({ type: 'action', action: lastAction.action, playerId: lastAction.playerId });
     }
   }, [lastAction, isHost, sendToIframe]);
 
-  // サーバーからのイベントをiframeへ転送
   useEffect(() => {
-    if (lastEvent !== null) {
-      sendToIframe({ type: 'event', event: lastEvent });
-    }
+    if (lastEvent !== null) sendToIframe({ type: 'event', event: lastEvent });
   }, [lastEvent, sendToIframe]);
 
   function backToRoom() {
@@ -109,167 +101,185 @@ export default function Game() {
     }));
   }
 
-  // 一時退出（セッション保持、ロビーへ）
   function tempLeave() {
     socket.emit('room:leave');
     useStore.getState().clearRoom();
     useStore.getState().setNavPage('lobby');
-    setShowLeaveMenu(false);
+    setMenuOpen(false);
+    setShowLeaveConfirm(false);
   }
 
-  // 退出（セッションリセット、ホームへ）
   function fullLeave() {
     socket.emit('room:leave');
     clearSession();
     useStore.getState().clearRoom();
     useStore.getState().setNavPage('home');
-    setShowLeaveMenu(false);
+    setMenuOpen(false);
+    setShowLeaveConfirm(false);
   }
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0f0f13' }}>
-      {/* 再接続中バナー */}
-      {isDisconnected && (
-        <div style={{
-          background: '#78350f',
-          borderBottom: '1px solid #92400e',
-          padding: '8px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 10,
-          fontSize: 13,
-          color: '#fef3c7',
-          flexShrink: 0,
-        }}>
-          <span>🔄</span>
-          再接続中... しばらくお待ちください
-        </div>
-      )}
-
-      {/* ゲームヘッダー */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '8px 16px',
-        background: '#1a1a24',
-        borderBottom: '1px solid #2a2a3a',
-        flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* ルームに戻る */}
-          <button onClick={backToRoom} style={{
-            padding: '6px 12px', borderRadius: 8, border: '1px solid #333',
-            background: 'transparent', color: '#888', cursor: 'pointer', fontSize: 13,
-          }}>
-            ← 戻る
-          </button>
-
-          <span style={{ fontWeight: 700, color: '#fff' }}>
-            {activeGame?.name ?? 'ゲーム'}
-          </span>
-          <span style={{ fontSize: 12, color: '#666' }}>
-            by {activeGame?.deployedBy}
-          </span>
-
-          {/* リロードボタン */}
-          <button onClick={reloadGame} style={{
-            padding: '5px 10px', borderRadius: 8, border: '1px solid #333',
-            background: 'transparent', color: '#888', cursor: 'pointer', fontSize: 13,
-          }} title="ゲームをリロード">
-            🔄
-          </button>
-
-          {/* ─── ホームに戻るドロップダウン ─── */}
-          <div style={{ position: 'relative', marginLeft: 4 }}>
-            <button
-              onClick={() => setShowLeaveMenu(!showLeaveMenu)}
-              style={{
-                padding: '5px 10px',
-                borderRadius: 8,
-                border: '1px solid #2a2a3a',
-                background: 'transparent',
-                color: '#666',
-                cursor: 'pointer',
-                fontSize: 12,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              ← ホーム <span style={{ fontSize: 9, opacity: 0.7 }}>▾</span>
-            </button>
-
-            {showLeaveMenu && (
-              <>
-                <div
-                  onClick={() => setShowLeaveMenu(false)}
-                  style={{ position: 'fixed', inset: 0, zIndex: 99 }}
-                />
-                <div style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 6px)',
-                  left: 0,
-                  zIndex: 100,
-                  background: '#1a1a24',
-                  border: '1px solid #2a2a3a',
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  minWidth: 230,
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
-                }}>
-                  <button
-                    onClick={tempLeave}
-                    style={{
-                      width: '100%', padding: '14px 16px', background: 'none',
-                      border: 'none', color: '#fff', cursor: 'pointer', textAlign: 'left', display: 'block',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, marginBottom: 2 }}>🔄 一時退出</div>
-                    <div style={{ fontSize: 12, color: '#888' }}>セッション保持（後でルームに戻れる）</div>
-                  </button>
-                  <div style={{ height: 1, background: '#2a2a3a' }} />
-                  <button
-                    onClick={fullLeave}
-                    style={{
-                      width: '100%', padding: '14px 16px', background: 'none',
-                      border: 'none', color: '#f87171', cursor: 'pointer', textAlign: 'left', display: 'block',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, marginBottom: 2 }}>🚪 退出</div>
-                    <div style={{ fontSize: 12, color: '#888' }}>セッションをリセット</div>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* 右: プレイヤー一覧 */}
-        <div style={{ display: 'flex', gap: 6 }}>
-          {room.players.map(p => (
-            <span key={p.id} style={{
-              padding: '3px 8px', borderRadius: 12, fontSize: 12,
-              background: p.isHost ? '#6366f1' : '#2a2a3a',
-              color: p.id === me.id ? '#fff' : '#aaa',
-            }}>
-              {p.name}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* ゲーム iframe */}
+    <div style={{ position: 'fixed', inset: 0, background: '#0f0f13' }}>
+      {/* ゲーム iframe（全画面） */}
       <iframe
         key={iframeKey}
         ref={iframeRef}
         src={`${SERVER}/game/${room.code}/${room.activeGameId}`}
         onLoad={onIframeLoad}
         sandbox="allow-scripts"
-        style={{ flex: 1, border: 'none', width: '100%' }}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
         title={activeGame?.name ?? 'Game'}
       />
+
+      {/* 再接続中バナー（最前面） */}
+      {isDisconnected && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
+          background: 'rgba(120,53,15,0.95)',
+          borderBottom: '1px solid #92400e',
+          padding: '8px 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 8, fontSize: 13, color: '#fef3c7',
+        }}>
+          🔄 再接続中... しばらくお待ちください
+        </div>
+      )}
+
+      {/* ─── 左上メニューボタン ─── */}
+      <button
+        onClick={() => { setMenuOpen(v => !v); setShowLeaveConfirm(false); }}
+        style={{
+          position: 'fixed',
+          top: 12,
+          left: 12,
+          zIndex: 300,
+          width: 36,
+          height: 36,
+          background: menuOpen ? 'rgba(99,102,241,0.85)' : 'rgba(0,0,0,0.55)',
+          border: `1.5px solid ${menuOpen ? '#6366f1' : 'rgba(255,255,255,0.18)'}`,
+          borderRadius: 8,
+          color: '#fff',
+          fontSize: 15,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(6px)',
+          transition: 'background 0.15s, border-color 0.15s',
+        }}
+        title="メニュー"
+      >
+        {menuOpen ? '✕' : '☰'}
+      </button>
+
+      {/* ─── メニューパネル ─── */}
+      {menuOpen && (
+        <>
+          {/* 背景タップで閉じる */}
+          <div
+            onClick={() => { setMenuOpen(false); setShowLeaveConfirm(false); }}
+            style={{ position: 'fixed', inset: 0, zIndex: 290 }}
+          />
+
+          <div style={{
+            position: 'fixed',
+            top: 56,
+            left: 12,
+            zIndex: 300,
+            minWidth: 230,
+            background: 'rgba(15,15,22,0.97)',
+            border: '1px solid #2a2a3a',
+            borderRadius: 12,
+            overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
+          }}>
+            {/* ゲーム名 */}
+            <div style={{
+              padding: '12px 16px 10px',
+              borderBottom: '1px solid #1e1e2e',
+            }}>
+              <div style={{ fontWeight: 700, color: '#fff', fontSize: 13, marginBottom: 2 }}>
+                {activeGame?.name ?? 'ゲーム'}
+              </div>
+              <div style={{ fontSize: 11, color: '#555' }}>by {activeGame?.deployedBy}</div>
+            </div>
+
+            {/* プレイヤー一覧 */}
+            <div style={{
+              padding: '10px 16px',
+              borderBottom: '1px solid #1e1e2e',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 6,
+            }}>
+              {room.players.map(p => (
+                <span key={p.id} style={{
+                  padding: '3px 8px', borderRadius: 12, fontSize: 11,
+                  background: p.isHost ? '#6366f1' : '#2a2a3a',
+                  color: p.id === me.id ? '#fff' : '#aaa',
+                }}>
+                  {p.name}
+                </span>
+              ))}
+            </div>
+
+            {/* アクション */}
+            <MenuBtn onClick={reloadGame}>🔄 ゲームをリロード</MenuBtn>
+            <MenuBtn onClick={() => { backToRoom(); setMenuOpen(false); }}>← ルームに戻る</MenuBtn>
+
+            <div style={{ height: 1, background: '#1e1e2e' }} />
+
+            {!showLeaveConfirm ? (
+              <MenuBtn onClick={() => setShowLeaveConfirm(true)} dimmed>
+                🚪 退出する
+              </MenuBtn>
+            ) : (
+              <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>どちらで退出しますか？</div>
+                <button onClick={tempLeave} style={leaveBtn}>
+                  <div style={{ fontWeight: 600, color: '#fff', fontSize: 12 }}>一時退出</div>
+                  <div style={{ fontSize: 10, color: '#666' }}>セッション保持（ルームに戻れる）</div>
+                </button>
+                <button onClick={fullLeave} style={{ ...leaveBtn, border: '1px solid #7f1d1d' }}>
+                  <div style={{ fontWeight: 600, color: '#f87171', fontSize: 12 }}>完全退出</div>
+                  <div style={{ fontSize: 10, color: '#666' }}>セッションをリセット</div>
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
+
+function MenuBtn({ onClick, children, dimmed }: {
+  onClick: () => void;
+  children: React.ReactNode;
+  dimmed?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%', padding: '12px 16px', background: 'none',
+        border: 'none', color: dimmed ? '#666' : '#ccc',
+        cursor: 'pointer', textAlign: 'left', fontSize: 13,
+        display: 'block',
+        transition: 'background 0.1s',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = '#1a1a2e')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+    >
+      {children}
+    </button>
+  );
+}
+
+const leaveBtn: React.CSSProperties = {
+  width: '100%', padding: '10px 12px',
+  background: 'rgba(255,255,255,0.03)',
+  border: '1px solid #2a2a3a',
+  borderRadius: 8, cursor: 'pointer',
+  textAlign: 'left',
+};
